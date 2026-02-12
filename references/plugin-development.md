@@ -6,9 +6,9 @@
 const plugin: Plugin = {
   name: 'my-plugin',
   description: 'What this plugin does',
-  priority: 10,                    // Loading order (higher = first)
+  priority: 10,                    // Loading order (lower number = loads first, plugin-sql uses 0)
   dependencies: ['@elizaos/plugin-sql'],
-  init: async (config, runtime) => { /* setup */ },
+  init: async (config, runtime) => { /* setup — called during registerPlugin() */ },
   actions: [],
   providers: [],
   evaluators: [],
@@ -17,7 +17,40 @@ const plugin: Plugin = {
   events: {},                      // Event handlers
   tests: [],
   config: {},
+  schema: {},                      // Drizzle ORM table definitions for auto-migration
 };
+```
+
+### Plugin Init Timing (CRITICAL)
+
+`plugin.init(config, runtime)` is called during `registerPlugin()`, which happens during agent startup. The database adapter may NOT be ready yet (plugin-sql registers it at priority 0).
+
+**Do NOT** in `init()`:
+- Call `runtime.createTask()` — adapter not ready → `TypeError: undefined is not an object`
+- Call `runtime.createMemory()` — same issue
+- Access `runtime.databaseAdapter.db` — may be undefined
+
+**Instead**, defer DB-dependent setup to:
+- **Service `start(runtime)`** — called after all plugins are registered and adapters are ready
+- **`ProjectAgent.init(runtime)`** — called after full agent initialization
+- **TaskWorker `execute()`** — runs after everything is bootstrapped
+
+```typescript
+// WRONG — will crash
+const plugin: Plugin = {
+  init: async (config, runtime) => {
+    await runtime.createTask({ name: 'MY_TASK', tags: ['repeat'] }); // ERROR!
+  },
+};
+
+// RIGHT — defer to service start
+class MyService extends Service {
+  static async start(runtime: IAgentRuntime) {
+    const service = new MyService(runtime);
+    await runtime.createTask({ name: 'MY_TASK', tags: ['repeat'] }); // OK here
+    return service;
+  }
+}
 ```
 
 ## Actions
@@ -274,10 +307,11 @@ Model: MODEL_USED, MODEL_FAILED
 
 ## Database Schemas
 
-Define custom tables using Drizzle ORM:
+Define custom tables using Drizzle ORM and export via plugin `schema` property. Tables are auto-created at startup.
 
 ```typescript
-import { pgTable, uuid, text, timestamp, jsonb, vector } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, boolean, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // Shared table (all agents access) — no agentId
 export const trades = pgTable('trades', {
@@ -287,25 +321,92 @@ export const trades = pgTable('trades', {
   price: text('price').notNull(),
   txHash: text('tx_hash'),
   metadata: jsonb('metadata'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_trades_pair').on(table.pair),
+]);
 
-// Agent-scoped table
+// Agent-scoped table (include agentId)
 export const agentPortfolio = pgTable('agent_portfolio', {
   id: uuid('id').primaryKey().defaultRandom(),
   agentId: uuid('agent_id').notNull(),
   holdings: jsonb('holdings').$type<{ token: string; amount: string }[]>(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
-// Register in plugin
+// Register in plugin — schema enables auto-migration
 export const plugin: Plugin = {
   name: 'trading-plugin',
   schema: { trades, agentPortfolio },
 };
 ```
 
-Migrations are auto-generated from schema definitions. Repository pattern recommended for data access.
+### Schema Namespacing
+
+Plugin name `@company/my-plugin` → PostgreSQL schema `company_my_plugin`. Tables get prefixed to prevent conflicts with core tables.
+
+### Migration System
+
+- **Dynamic**: No migration files. `DatabaseMigrationService` discovers schemas, introspects existing tables, generates DDL.
+- **Additive only**: Creates tables, adds columns, creates indexes. Never drops anything.
+- **Dependency resolution**: Foreign key order is automatically resolved.
+- **Limitations**: Column type changes require manual SQL. No rollback support.
+
+### Database Access — Repository Pattern
+
+```typescript
+import { eq, and } from 'drizzle-orm';
+
+class TradeRepository {
+  constructor(private readonly db: ReturnType<typeof drizzle>) {}
+
+  async create(data: { pair: string; amount: string; price: string }) {
+    const [trade] = await this.db.insert(trades).values(data).returning();
+    return trade;
+  }
+
+  async findByPair(pair: string) {
+    return await this.db.select().from(trades).where(eq(trades.pair, pair));
+  }
+
+  async updateWithTransaction(tradeId: string, updates: Partial<typeof trades.$inferInsert>) {
+    return await this.db.transaction(async (tx) => {
+      const [updated] = await tx.update(trades).set(updates)
+        .where(eq(trades.id, tradeId)).returning();
+      return updated;
+    });
+  }
+}
+
+// Usage in action handler
+handler: async (runtime, message) => {
+  const db = runtime.databaseAdapter.db;
+  const repo = new TradeRepository(db);
+  const trade = await repo.create({ pair: 'ETH/USDC', amount: '1.0', price: '3200' });
+  return { success: true, data: trade };
+};
+```
+
+### Foreign Keys to Core Tables
+
+```typescript
+import { agentTable } from '@elizaos/plugin-sql/schema';
+
+export const myTable = pgTable('my_data', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentId: uuid('agent_id').notNull()
+    .references(() => agentTable.id, { onDelete: 'cascade' }),
+});
+```
+
+### Table Best Practices
+
+- Prefix table names with plugin name (e.g., `trading_trades`, not `trades`)
+- Always include `createdAt` and `updatedAt` timestamps with timezone
+- Use JSONB for flexible metadata, not catch-all fields
+- Index foreign key columns and frequently queried fields
+- Tables without `agentId` are shared across all agents
+- Handle both camelCase and snake_case in repository mappers
 
 ## Plugin Patterns
 

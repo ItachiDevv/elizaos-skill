@@ -9,6 +9,9 @@ description: >
   background tasks, event systems, model providers (OpenAI, Anthropic, Ollama, OpenRouter), or
   any code using @elizaos/core, @elizaos/cli, @elizaos/plugin-*, or the elizaos GitHub repos.
   Also use when discussing AI agent architecture, multi-agent orchestration, or the elizaos ecosystem.
+  Covers application integration patterns (embedded runtime vs external server, dynamic context
+  injection, agent lifecycle management, dual AI fallback, game/simulation loops, knowledge learning
+  systems, memory augmentation with importance scoring and reflection).
   Covers BOTH the stable develop branch AND the v2.0.0 alpha branch with Python/Rust SDKs,
   protobuf schemas, cross-language interop, capability tiers, autonomy system, and ServiceBuilder API.
 ---
@@ -58,7 +61,7 @@ Two processing modes: **Single-Shot** (one LLM call) and **Multi-Step** (iterati
 
 ### v2.0.0 Branch (Alpha — Major Restructuring)
 
-The v2.0.0 branch (194 commits ahead of develop, version `2.0.0-alpha.2`) restructures packages:
+The v2.0.0 branch (version `2.0.0-alpha.10` on npm as `@next`) restructures packages:
 
 ```
 packages/
@@ -164,6 +167,96 @@ const character: Character = {
 };
 ```
 
+## Database Architecture
+
+### Storage Backends
+
+ElizaOS uses **PGLite** (embedded PostgreSQL in Node.js) by default. No external database required for development. For production, set `POSTGRES_URL` to use full PostgreSQL.
+
+```bash
+# PGLite (default — no config needed, stores at ./.eliza/.elizadb)
+PGLITE_DATA_DIR=/custom/path    # Optional: override PGLite data directory
+
+# PostgreSQL (production)
+POSTGRES_URL=postgresql://user:password@host:5432/database
+```
+
+Adapter selection via `createDatabaseAdapter()`:
+- `POSTGRES_URL` set → `PgDatabaseAdapter` (connection pooling, SSL, retry with backoff)
+- No `POSTGRES_URL` → `PgliteDatabaseAdapter` (singleton, file-based, zero config)
+
+Both extend `BaseDrizzleAdapter` and implement `IDatabaseAdapter`.
+
+### Core Tables (auto-created by plugin-sql)
+
+`agents`, `memories`, `entities`, `relationships`, `rooms`, `participants`, `messages`, `embeddings`, `cache`, `logs`, `tasks`
+
+### Embedding Dimensions
+
+**Default: 384** (NOT 1536). Defined via `DIMENSION_MAP`:
+
+```
+VECTOR_DIMS: SMALL(384), MEDIUM(512), LARGE(768), XL(1024), XXL(1536), XXXL(3072)
+```
+
+Both adapters default to `DIMENSION_MAP[384]`. If using OpenAI text-embedding-3-small (1536 dims), the adapter dimension must be aligned — ElizaOS will auto-detect from the embedding provider plugin.
+
+### Plugin Schema System (Drizzle ORM)
+
+Plugins define custom tables via Drizzle ORM and export as `schema` property. Migrations are **fully automatic** — no migration files needed.
+
+```typescript
+import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+
+export const myDataTable = pgTable('my_plugin_data', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentId: uuid('agent_id').notNull(),  // Agent-scoped (omit for shared)
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Plugin export
+export const myPlugin: Plugin = {
+  name: 'my-plugin',
+  schema: { myDataTable },  // Enables auto-migration
+};
+```
+
+**Schema namespacing**: Plugin `@company/my-plugin` → PostgreSQL schema `company_my_plugin` → table `company_my_plugin.my_plugin_data`. Prevents naming conflicts.
+
+**Migration stages**: Registration → Schema Discovery → Schema Introspection → Dynamic Migration → Dependency Resolution
+
+**Limitations**: Additive only (new tables, columns, indexes). No drops, no column type changes, no rollbacks. Manual intervention required for breaking schema changes.
+
+### Database Access Pattern
+
+```typescript
+// In actions/providers/services — get Drizzle instance
+const db = runtime.databaseAdapter.db;
+
+// Use repository pattern (recommended)
+class MyRepository {
+  constructor(private readonly db: ReturnType<typeof drizzle>) {}
+  async findById(id: UUID) {
+    return await this.db.select().from(myDataTable).where(eq(myDataTable.id, id));
+  }
+}
+
+// In action handler
+const db = runtime.databaseAdapter.db;
+const repo = new MyRepository(db);
+const data = await repo.findById(someId);
+```
+
+### Foreign Keys to Core Tables
+
+```typescript
+import { agentTable } from '@elizaos/plugin-sql/schema';
+agentId: uuid('agent_id').notNull()
+  .references(() => agentTable.id, { onDelete: 'cascade' })
+```
+
 ## Key Interfaces
 
 ### Memory System
@@ -185,7 +278,7 @@ const state = await runtime.composeState(message);
 const state = await runtime.composeState(message, ['RECENT_MESSAGES', 'CHARACTER'], true);
 ```
 
-### Model Types
+### Model Types & Priority Routing
 
 ```
 TEXT_SMALL, TEXT_LARGE, TEXT_COMPLETION, TEXT_REASONING_SMALL, TEXT_REASONING_LARGE,
@@ -194,6 +287,8 @@ TRANSCRIPTION, TEXT_TO_SPEECH, AUDIO, VIDEO, OBJECT_SMALL, OBJECT_LARGE, RESEARC
 ```
 
 Usage: `await runtime.useModel(ModelType.TEXT_LARGE, { prompt, temperature: 0.7 })`
+
+Model registration uses **priority-based routing** — higher priority wins. Multiple plugins can register handlers for the same model type; the highest priority handler is used. Plugin loading order (for LLM): Anthropic → OpenRouter → OpenAI → Google GenAI → Ollama.
 
 ### Event Types (30+)
 
@@ -294,17 +389,25 @@ CMD ["bun", "run", "start"]
 # Required
 NODE_ENV=development
 OPENAI_API_KEY=sk-...              # Or ANTHROPIC_API_KEY
-POSTGRES_URL=postgresql://...       # Or use PGLite (default)
+POSTGRES_URL=postgresql://...       # Or use PGLite (default — no config needed)
+
+# Database
+PGLITE_DATA_DIR=/custom/path       # Override PGLite storage (default: ./.eliza/.elizadb)
+ELIZA_DATA_DIR=/custom/data        # General data directory
 
 # Server
+SERVER_PORT=3000                   # Server port (default 3000)
+SERVER_HOST=0.0.0.0                # Server bind address
 ELIZA_SERVER_AUTH_TOKEN=            # REST API auth (header: X-API-KEY)
 ELIZA_UI_ENABLE=true               # Web dashboard
 LOG_LEVEL=info                     # debug for verbose
+IGNORE_BOOTSTRAP=false             # Skip bootstrap plugin if true
 
 # Platforms
 DISCORD_APPLICATION_ID= / DISCORD_API_TOKEN=
 TWITTER_API_KEY= / TWITTER_API_SECRET_KEY= / TWITTER_ACCESS_TOKEN= / TWITTER_ACCESS_TOKEN_SECRET=
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_ALLOWED_CHATS=            # JSON array: '["chatId1","chatId2"]'
 SOLANA_PRIVATE_KEY= / SOLANA_RPC_URL=
 EVM_PRIVATE_KEY= / ETHEREUM_PROVIDER_MAINNET=
 
@@ -313,20 +416,96 @@ LOAD_DOCS_ON_STARTUP=true
 CTX_KNOWLEDGE_ENABLED=true         # 50% better retrieval via contextual embeddings
 ```
 
+## Application Integration Patterns
+
+ElizaOS can be integrated into applications two ways:
+
+### Embedded Runtime (Direct Import)
+Import `@elizaos/core` directly and manage `AgentRuntime` instances in-process. Best for monorepos.
+
+```typescript
+const runtime = new AgentRuntime({ character, plugins, databaseAdapter });
+await runtime.initialize();
+const response = await runtime.processMessage(/* ... */);
+```
+
+### External Server (REST API)
+Run ElizaOS standalone (`elizaos start`) and communicate via REST. Best for decoupled architectures.
+
+```typescript
+// Create agent
+await fetch(`${ELIZA_SERVER}/api/agents`, { method: 'POST', body: JSON.stringify(character) });
+// Send message via DM channel
+await fetch(`${ELIZA_SERVER}/api/messaging/dm/${agentId}/${userId}`, { method: 'POST' });
+await fetch(`${ELIZA_SERVER}/api/messaging/channels/${channelId}/messages`, {
+  method: 'POST', body: JSON.stringify({ content: { text }, senderId: userId }),
+});
+```
+
+### Dynamic Context Injection
+Inject game/app state into prompts so agents respond contextually:
+
+```typescript
+// Option A: Pre-prompt injection (works with any approach)
+const context = `Token balance: ${pet.neoTokens}. Known topics: ${topics.join(', ')}`;
+await runtime.processMessage(message, { dynamicContext: context });
+
+// Option B: Custom Provider (ElizaOS native — embedded only)
+const gameStateProvider: Provider = {
+  name: 'GAME_STATE', dynamic: true, position: -90,
+  get: async (runtime, message) => ({
+    text: `Player balance: ${balance} tokens\nLocation: ${location}`,
+    values: {}, data: {},
+  }),
+};
+```
+
+### Agent Lifecycle
+- **Lazy start**: Create agents on first chat, not on app startup
+- **Auto-stop**: Stop agents after inactivity (e.g., 30min) to save memory (~50-100MB per agent)
+- **Config hot-reload**: Update DB config → stop agent → next message lazy-restarts with new config
+- **Knowledge learning**: Add entries to `character.knowledge[]` in DB, stop agent, restart picks them up
+- **Stagger startup**: 2-5s delays between concurrent agent inits (30s timeout limit)
+
+### Dual AI Fallback
+If ElizaOS availability isn't guaranteed, fall back to direct LLM calls with character context:
+
+```typescript
+try {
+  return await elizaRuntime.processMessage(message);
+} catch {
+  const systemPrompt = buildPromptFromCharacter(character);
+  return await anthropic.messages.create({ system: systemPrompt, messages: [{ role: 'user', content: message }] });
+}
+```
+
+For full patterns (memory augmentation, game simulation, multi-agent conversations, deployment), see **[Integration Patterns](references/integration-patterns.md)**.
+
 ## Key Gotchas & Troubleshooting
 
-- **Memory types changed in v2**: Now 5 types (DOCUMENT, FRAGMENT, MESSAGE, DESCRIPTION, CUSTOM) — not the old 7.
-- **Anthropic has no embedding model**: Always include OpenAI or Ollama as fallback for embeddings.
-- **Concurrent agent init**: ElizaOS has 30-second timeout — use a mutex and 2-5s delays between agent startups.
+- **Default embedding dimension is 384**: NOT 1536. Both PGLite and PostgreSQL adapters default to `DIMENSION_MAP[384]`. OpenAI text-embedding-3-small produces 1536 dims — ElizaOS auto-detects from the provider plugin, but custom code must match.
+- **Anthropic has no embedding model**: Always include OpenAI or Ollama as fallback for embeddings. Without an embedding provider, memory search and knowledge features will fail.
+- **Plugin init timing**: `plugin.init(config, runtime)` is called during `registerPlugin()`. The database adapter (from plugin-sql with `priority: 0`) may NOT be fully ready when other plugins init. Do NOT call `runtime.createTask()`, `runtime.createMemory()`, or access `runtime.databaseAdapter` during plugin `init()`. Defer to service `start()` or `ProjectAgent.init()` instead.
+- **plugin-sql priority 0**: This plugin must load first. It calls `runtime.registerDatabaseAdapter(dbAdapter)` in its init. All other plugins that need DB access should have higher priority numbers (default: 10+).
+- **Schema auto-migration is additive only**: Tables and columns are added automatically, but never dropped. Column type changes require manual SQL migration.
+- **Memory types**: 5 types on develop branch (DOCUMENT, FRAGMENT, MESSAGE, DESCRIPTION, CUSTOM). V2 has same 5.
 - **Never throw from handlers**: Always return `{ success: false, error }` from actions; return empty result from providers.
+- **Concurrent agent init**: ElizaOS has 30-second timeout — use a mutex and 2-5s delays between agent startups.
 - **Twitter requires OAuth 1.0a**: NOT OAuth 2.0.
 - **WebSocket clients must listen to `messageBroadcast`**: NOT `message`. Must emit ROOM_JOINING first.
 - **Plugin not loading**: Check export in `src/index.ts`, verify in character `plugins` array, run `bun run build`.
 - **Service not found**: Verify `static serviceType` matches `getService()` name, ensure `start()` returns instance.
 - **Memory search empty**: Lower threshold (default 0.7), check embeddings generated, verify correct type.
 - **Action not triggering**: Check `validate()` logic, review `similes` and `examples`, ensure registered in plugin.
-- **Database errors**: Verify `POSTGRES_URL` format, check PGLite fallback with `PGLITE_DATA_DIR`.
-- **Naming conflicts**: Prefix plugin tables to avoid colliding with ElizaOS tables (agents, memories, entities, rooms).
+- **Database errors**: Verify `POSTGRES_URL` format. For PGLite, check `.eliza/.elizadb` directory is writable. Delete `.eliza/` to reset local DB.
+- **Naming conflicts**: Prefix plugin tables to avoid colliding with ElizaOS core tables (agents, memories, entities, rooms, participants, messages, embeddings, cache, logs, tasks).
+- **Plugin schema export**: Tables must be exported in the plugin's `schema` property to trigger auto-migration. Missing `schema` = no tables created.
+- **Database access**: Always use `runtime.databaseAdapter.db` (Drizzle instance), NOT direct Supabase client, for tables managed by ElizaOS. Custom external databases (Supabase REST API) can coexist alongside.
+- **TELEGRAM_ALLOWED_CHATS**: Must be JSON stringified array, not comma-separated.
+- **Serverless deployment**: ElizaOS agents need persistent processes. Vercel/Netlify Functions will NOT work. Use Railway, Render, Fly.io, or similar.
+- **ElizaOS auto-migration vs pre-created indexes**: If you pre-create indexes that ElizaOS expects to create, migration will fail. Only create tables with `IF NOT EXISTS` and let ElizaOS handle its own indexes.
+- **Knowledge hot-reload**: Character `knowledge` is loaded at agent startup. To add knowledge at runtime, update the config in your DB then stop the agent — next message will lazy-restart with new knowledge.
+- **Agent memory per instance**: Each running ElizaOS agent uses ~50-100MB. Scale accordingly and implement auto-stop for inactive agents.
 
 ## Reference Files
 
@@ -336,4 +515,5 @@ Read these reference files as needed for deeper information:
 - **[Plugin Development](references/plugin-development.md)** — Full Action/Provider/Evaluator/Service interfaces, handler signatures, patterns, schemas, routes, events. Read when writing or debugging plugins.
 - **[Platform Integrations](references/platform-integrations.md)** — All platform plugins (Discord, Twitter, Telegram, Farcaster), blockchain (Solana, EVM), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), Knowledge/RAG, SQL, MCP. Read when configuring integrations.
 - **[API Reference](references/api-reference.md)** — Complete REST API endpoints (agents, messaging, sessions, memory, rooms, audio, system), WebSocket events, Socket.IO patterns. Read when building API integrations.
+- **[Integration Patterns](references/integration-patterns.md)** — Embedded vs external server, dynamic context injection, agent lifecycle (lazy start/auto-stop/config hot-reload), dual AI fallback, game simulation loops, multi-agent conversations, knowledge learning, memory augmentation (importance scoring, reflection, recency decay), token economies, deployment patterns. Read when integrating ElizaOS into applications or games.
 - **[Ecosystem](references/ecosystem.md)** — All 57 GitHub repos: starters, showcase agents, Python toolkit, data tools, infrastructure. Read when exploring the ecosystem or finding starter templates.

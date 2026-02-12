@@ -1,6 +1,14 @@
 # Platform & Provider Integrations Reference
 
-## LLM Providers
+## LLM Provider System
+
+### Model Priority Routing
+
+ElizaOS uses a **priority-based model routing system**. Multiple plugins can register handlers for the same `ModelType`. The handler with the highest priority wins. If it fails, the next-highest is tried (fallback chain).
+
+**Default plugin loading order**: Anthropic → OpenRouter → OpenAI → Google GenAI → Ollama
+
+This means if both Anthropic and OpenAI are configured, Anthropic handles TEXT_SMALL/TEXT_LARGE, while OpenAI handles TEXT_EMBEDDING (since Anthropic has none).
 
 ### OpenAI
 ```bash
@@ -10,8 +18,9 @@ elizaos plugins add @elizaos/plugin-openai
 OPENAI_API_KEY=sk-...
 OPENAI_SMALL_MODEL=gpt-4o-mini
 OPENAI_LARGE_MODEL=gpt-4o
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small   # 1536 dimensions
 ```
+Provides: TEXT_SMALL, TEXT_LARGE, TEXT_EMBEDDING, IMAGE, TRANSCRIPTION, TEXT_TO_SPEECH, OBJECT_SMALL, OBJECT_LARGE
 
 ### Anthropic
 ```bash
@@ -22,7 +31,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_SMALL_MODEL=claude-3-haiku-20240307
 ANTHROPIC_LARGE_MODEL=claude-3-5-sonnet-latest
 ```
-Note: Anthropic has no embedding model — include OpenAI or another provider for embeddings.
+**CRITICAL**: Anthropic has NO embedding model. You MUST include OpenAI or Ollama alongside Anthropic for embeddings. Without an embedding provider, memory search, knowledge features, and fact extraction will all fail silently.
 
 ### Ollama (Local)
 ```bash
@@ -32,9 +41,9 @@ elizaos plugins add @elizaos/plugin-ollama
 OLLAMA_API_ENDPOINT=http://localhost:11434/api
 OLLAMA_SMALL_MODEL=llama3.2
 OLLAMA_LARGE_MODEL=llama3.1:70b
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text          # 768 dimensions
 ```
-Requires: `ollama pull <model>` before use.
+Requires: `ollama pull <model>` before use. Embedding dimensions vary by model.
 
 ### OpenRouter
 ```bash
@@ -84,10 +93,12 @@ elizaos plugins add @elizaos/plugin-telegram
 ```
 ```env
 TELEGRAM_BOT_TOKEN=bot_token_from_botfather
-TELEGRAM_API_ROOT=optional_custom_api
-TELEGRAM_ALLOWED_CHATS=optional_chat_filter
+TELEGRAM_API_ROOT=optional_custom_api          # Custom Telegram API server
+TELEGRAM_ALLOWED_CHATS='["chatId1","chatId2"]' # JSON array (NOT comma-separated)
 ```
 Features: Messages, media, inline keyboards, group management, bot commands.
+
+Uses Telegraf client library. Bot must be created via @BotFather. For group chats, bot must be added as admin. `TELEGRAM_ALLOWED_CHATS` accepts a JSON-stringified array of chat IDs to restrict which chats the bot responds in.
 
 ### Farcaster
 ```bash
@@ -167,7 +178,7 @@ const character: Character = {
 
 ## SQL / Database
 
-### SQL Plugin
+### SQL Plugin (Required — priority 0)
 ```bash
 elizaos plugins add @elizaos/plugin-sql
 ```
@@ -176,9 +187,27 @@ elizaos plugins add @elizaos/plugin-sql
 POSTGRES_URL=postgresql://user:pass@host:5432/database
 
 # PGLite (local development — no external DB needed)
-PGLITE_DATA_DIR=/path/to/db    # Defaults to .eliza/
+PGLITE_DATA_DIR=/path/to/db    # Defaults to ./.eliza/.elizadb
 ```
-Provides: Drizzle ORM integration, automatic schema migrations, IDatabaseAdapter implementation.
+
+**Architecture**:
+- `priority: 0` ensures it loads before all other plugins
+- Calls `runtime.registerDatabaseAdapter(dbAdapter)` during init
+- Adapter selection: `POSTGRES_URL` set → `PgDatabaseAdapter`, else → `PgliteDatabaseAdapter`
+- Both extend `BaseDrizzleAdapter` with default **384-dimension** embeddings
+- Provides: Drizzle ORM integration, automatic schema migrations, IDatabaseAdapter
+- `DatabaseMigrationService` handles all plugin schema discovery and migration
+- Connection managers are singletons (`PGliteClientManager`, `PostgresConnectionManager`)
+
+**Core tables auto-created**: `agents`, `memories`, `entities`, `relationships`, `rooms`, `participants`, `messages`, `embeddings`, `cache`, `logs`, `tasks`
+
+**Compatible PostgreSQL providers**: Supabase, Neon, RDS, Cloud SQL, self-hosted (v12+)
+
+```
+# Connection string examples
+Supabase:  postgresql://postgres:[password]@[project].supabase.co:5432/postgres
+Neon:      postgresql://[user]:[password]@[project].neon.tech/[database]?sslmode=require
+```
 
 ## Other Service Plugins
 

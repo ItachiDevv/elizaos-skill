@@ -1,6 +1,6 @@
 # ElizaOS v2.0.0 Architecture Reference
 
-Branch: `v2.0.0` (194 commits ahead, 150 behind `develop`). Version: `2.0.0-alpha.2`. Node 23.3.0, Bun 1.3.5.
+Branch: `v2.0.0` (active development, published as `@next` on npm). Version: `2.0.0-alpha.10`. Node 23.3.0, Bun 1.3.5.
 
 ## Package Restructuring
 
