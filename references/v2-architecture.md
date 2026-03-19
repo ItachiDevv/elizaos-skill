@@ -1,373 +1,403 @@
-# ElizaOS v2.0.0 Architecture Reference
+# ElizaOS v2 Architecture Reference
 
-Branch: `v2.0.0` (active development, published as `@next` on npm). Version: `2.0.0-alpha.10`. Node 23.3.0, Bun 1.3.5.
+Branch: `v2-develop`. Root version: `1.7.3-alpha.3` (all packages via Lerna). Node 23+, Bun 1.3.4+.
 
 ## Package Restructuring
 
-```
-packages/
-  @schemas/        → Protobuf .proto schemas for cross-language type generation
-  typescript/      → @elizaos/core (was packages/core/)
-    src/
-      advanced-capabilities/  → Extended agent capabilities
-      advanced-memory/        → Advanced memory systems
-      advanced-planning/      → Multi-step planning
-      autonomy/               → Autonomous agent operations
-      basic-capabilities/     → Core providers, actions, services
-      bootstrap/              → Bootstrap plugin (moved FROM packages/plugin-bootstrap/)
-      database/               → DB adapters (includes InMemoryAdapter)
-      generated/              → Auto-generated code (action-docs, spec-helpers)
-      schemas/                → Character schemas
-      services/               → Message service, trajectory logger
-      testing/                → Test framework
-      types/                  → 26 type definition files
-      utils/                  → buffer, environment, node, streaming
-  python/          → Python runtime/SDK
-  rust/            → Rust runtime/SDK
-  interop/         → @elizaos/interop: cross-language plugin interop (TS/Python/Rust)
-  elizaos/         → CLI binary (renamed from @elizaos/cli)
-  computeruse/     → Computer use capabilities
-  sweagent/        → Software engineering agent
-  prompts/         → Standalone prompt templates
-  docs/            → Documentation (Mintlify)
+External plugins (Discord, Telegram, Twitter, OpenAI, Anthropic, Ollama, Solana, EVM, etc.) are now in a **separate organization** (`elizaos-plugins/`), installed via npm/bun. Only foundation packages live in the monorepo.
 
-plugins/           → 45+ plugins at root level (moved from packages/plugin-*)
-  plugin-agent-orchestrator, plugin-anthropic, plugin-auto-trader, plugin-blooio,
-  plugin-bluesky, plugin-browser, plugin-code, plugin-computeruse, plugin-discord,
-  plugin-goals, plugin-google-genai, plugin-groq, plugin-inmemorydb, plugin-instagram,
-  plugin-knowledge, plugin-linear, plugin-local-ai, plugin-localdb, plugin-lp-manager,
-  plugin-mcp, plugin-memory, plugin-minecraft, plugin-n8n, plugin-ollama, plugin-openai,
-  plugin-openrouter, plugin-pdf, plugin-planning, plugin-polymarket, plugin-roblox,
-  plugin-rss, plugin-s3-storage, plugin-scheduling, plugin-shell, plugin-simple-voice,
-  plugin-solana, plugin-sql, plugin-tee, plugin-telegram, plugin-todo,
-  plugin-trajectory-logger, plugin-twilio, plugin-vercel-ai-gateway, plugin-vision,
-  plugin-whatsapp, plugin-xai
-```
+### Monorepo Packages (17 total)
 
-## Type System (26 files in packages/typescript/src/types/)
+| Package | Purpose |
+|---------|---------|
+| `@elizaos/core` | Runtime, types, agents, database interfaces |
+| `@elizaos/cli` | CLI tool (`elizaos` command) |
+| `@elizaos/server` | Express.js backend + Socket.IO |
+| `@elizaos/client` | React web dashboard |
+| `@elizaos/api-client` | Type-safe REST/WebSocket API client |
+| `@elizaos/app` | Tauri desktop wrapper |
+| `@elizaos/plugin-bootstrap` | Default actions, providers, evaluators, events |
+| `@elizaos/plugin-sql` | Drizzle ORM adapter (PGLite, PostgreSQL, Neon) |
+| `@elizaos/plugin-starter` | Canonical plugin template |
+| `@elizaos/plugin-dummy-services` | Mock services for testing |
+| `@elizaos/plugin-quick-starter` | Minimal plugin scaffold |
+| `@elizaos/project-starter` | Full project scaffold |
+| `@elizaos/project-tee-starter` | TEE-enabled project scaffold |
+| `@elizaos/service-interfaces` | Service type definitions for cross-plugin contracts |
+| `@elizaos/config` | Shared config (tsconfig, eslint, prettier) |
+| `@elizaos/test-utils` | Test utilities |
+| `elizaos` | Alias for `@elizaos/cli` |
 
-### Primitives (types/primitives.ts)
-- **UUID**: String type
-- **ChannelType**: SELF, DM, GROUP, VOICE_DM, VOICE_GROUP, FEED, THREAD, WORLD, FORUM, API (deprecated)
-- **Content**: text, thoughts?, actions?, attachments?, channel?, metadata?, responseMessageId?
-- **MentionContext**: isMention, isReply, isThread
-- **Media**: id, url, title, source, description, contentType
-- **ContentType**: IMAGE, VIDEO, AUDIO, DOCUMENT, LINK
+**Note:** Python/Rust SDKs and protobuf schemas do NOT exist in v2 yet. ElizaOS v2 is TypeScript-only. The Tauri app uses Rust only for desktop wrapping.
 
-### Agent (types/agent.ts)
+## Type System
+
+All types in `packages/core/src/types/` as separate files re-exported from `types/index.ts`.
+
+### Plugin Interface (`types/plugin.ts`)
+
 ```typescript
-interface Character {
-  id?: UUID; name: string; username?: string; system?: string;
-  templates?: { [key: string]: TemplateType };
-  bio: string | string[];
-  messageExamples?: MessageExample[][];
-  postExamples?: string[];
-  topics?: string[]; adjectives?: string[];
-  knowledge?: (string | { path: string; shared?: boolean } | DirectoryItem)[];
-  plugins?: string[];
-  settings?: CharacterSettings;
-  secrets?: { [key: string]: string | boolean | number };
-  style?: { all?: string[]; chat?: string[]; post?: string[] };
-}
-
-interface CharacterSettings {
-  ENABLE_AUTONOMY?: boolean;
-  DISABLE_BASIC_CAPABILITIES?: boolean;
-  ENABLE_EXTENDED_CAPABILITIES?: boolean;
-  ADVANCED_CAPABILITIES?: string[];
-  secrets?: Record<string, string>;
-  // ...extends proto settings
+interface Plugin {
+  name: string;                           // REQUIRED
+  description: string;                    // REQUIRED
+  init?: (config: Record<string, string>, runtime: IAgentRuntime) => Promise<void>;
+  config?: Record<string, unknown>;       // Values stringified and passed to init()
+  services?: (typeof Service)[];          // Pass class, NOT instance
+  componentTypes?: ComponentType[];       // Entity Component System types
+  actions?: Action[];
+  providers?: Provider[];
+  evaluators?: Evaluator[];
+  adapter?: IDatabaseAdapter;             // Custom DB adapter
+  models?: Record<string, ModelHandler>;  // Model handlers by ModelType
+  events?: PluginEvents;                  // Event handlers map
+  routes?: Route[];                       // HTTP endpoints
+  tests?: TestSuite[];
+  dependencies?: string[];               // Auto-resolved with topological sort
+  testDependencies?: string[];
+  priority?: number;                      // Higher = model handlers preferred
+  schema?: Record<string, unknown>;       // Zod schema for env validation / Drizzle tables
 }
 ```
-AgentStatus: ACTIVE, INACTIVE
 
-### Memory (types/memory.ts)
+Validation (`isValidPluginShape`) requires `name` plus at least one of: `init`, `services`, `providers`, `actions`, `evaluators`, or `description`.
+
+### Project & Agent
+
+```typescript
+interface Project { agents: ProjectAgent[]; }
+interface ProjectAgent {
+  character: Character;
+  init?: (runtime: IAgentRuntime) => Promise<void>;
+  plugins?: (string | Plugin)[];     // String names auto-resolved
+  tests?: TestSuite | TestSuite[];
+}
+```
+
+### Action / Handler
+
+```typescript
+type Handler = (
+  runtime: IAgentRuntime,
+  message: Memory,
+  state?: State,
+  options?: HandlerOptions,
+  callback?: HandlerCallback,
+  responses?: Memory[]
+) => Promise<ActionResult | void | undefined>;
+
+interface Action {
+  name: string; description: string; similes?: string[];
+  examples?: ActionExample[][]; suppressInitialMessage?: boolean;
+  validate: Validator; handler: Handler;
+  [key: string]: unknown;  // Extensible
+}
+
+interface ActionResult {
+  success: boolean;        // REQUIRED
+  text?: string; error?: string;
+  values?: Record<string, unknown>; data?: Record<string, unknown>;
+}
+
+interface HandlerOptions {
+  actionContext?: { previousResults: ActionResult[]; currentStep: number; totalSteps: number; };
+  actionPlan?: ActionPlan;
+  [key: string]: unknown;
+}
+```
+
+### Provider
+
+```typescript
+interface Provider {
+  name: string; description?: string;
+  dynamic?: boolean;     // Excluded from default composeState
+  position?: number;     // Lower = earlier (-100 to 100)
+  private?: boolean;     // Must be called explicitly
+  get(runtime: IAgentRuntime, message: Memory, state: State): Promise<ProviderResult>;
+}
+
+interface ProviderResult {
+  text?: string; values?: Record<string, unknown>; data?: Record<string, unknown>;
+}
+```
+
+### Evaluator
+
+```typescript
+interface Evaluator {
+  name: string; description: string; similes?: string[];
+  examples: EvaluationExample[];   // REQUIRED (not optional)
+  validate: Validator; handler: Handler;
+  alwaysRun?: boolean;             // Skips validate() if true
+}
+```
+
+### Service
+
+```typescript
+abstract class Service {
+  protected runtime?: IAgentRuntime;
+  abstract stop(): Promise<void>;
+  abstract capabilityDescription: string;
+  static serviceType: string;
+  config?: Record<string, unknown>;
+  static start?(runtime: IAgentRuntime): Promise<Service>;
+  static stop?(): Promise<void>;
+  static registerSendHandlers?(runtime: IAgentRuntime): Promise<void>;
+}
+```
+
+ServiceBuilder alternatives (in `packages/core/src/services.ts`):
+```typescript
+// Fluent builder
+const MyService = createService<Service>('my-service')
+  .withDescription('Does something')
+  .withStart(async (runtime) => { /* return service instance */ })
+  .withStop(async () => { /* cleanup */ })
+  .build();
+
+// Declarative
+const MyService = defineService({
+  serviceType: 'my-service',
+  description: 'Does something',
+  start: async (runtime) => { /* return service instance */ },
+  stop: async () => { /* cleanup */ }
+});
+```
+
+ServiceType extensible via module augmentation on `ServiceTypeRegistry`.
+
+Services retrieved via:
+```typescript
+runtime.getService<T>(type);           // First match
+runtime.getServicesByType<T>(type);    // All matches
+runtime.hasService(type);              // Boolean check
+await runtime.getServiceLoadPromise(type); // Wait until ready
+```
+
+### State
+
+```typescript
+interface State {
+  values: Record<string, string>;  // Flat KV from providers
+  data: StateData;                 // Structured data cache
+  text: string;                    // Concatenated provider text
+  [key: string]: unknown;
+}
+
+interface StateData {
+  room?: Room; world?: World; entity?: Entity;
+  providers?: Record<string, ProviderResult>;
+  actionPlan?: ActionPlan; actionResults?: ActionResult[];
+  workingMemory?: Record<string, WorkingMemoryEntry>;
+  [key: string]: unknown;
+}
+```
+
+### Memory
+
 ```typescript
 enum MemoryType { DOCUMENT, FRAGMENT, MESSAGE, DESCRIPTION, CUSTOM }
 type MemoryScope = 'shared' | 'private' | 'room';
 
 interface Memory {
-  id?: UUID; createdAt?: string; embedding?: number[];
-  metadata?: DocumentMetadata | FragmentMetadata | MessageMetadata | DescriptionMetadata | CustomMetadata;
-  content: Content;
-}
-```
-Type guards: isDocumentMetadata, isFragmentMetadata, isMessageMetadata, isDescriptionMetadata, isCustomMetadata
-
-### Components (types/components.ts)
-```typescript
-interface Action {
-  name: string; description: string; similes?: string[];
-  examples?: ActionExample[][]; suppressInitialMessage?: boolean;
-  validate(runtime: IAgentRuntime, message: Memory, state?: State): Promise<boolean>;
-  handler(runtime: IAgentRuntime, message: Memory, state?: State,
-    options?: HandlerOptions, callback?: HandlerCallback): Promise<ActionResult>;
-}
-
-interface Provider {
-  name: string; description?: string; dynamic?: boolean;
-  position?: number; private?: boolean;
-  get(runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult>;
-}
-
-interface Evaluator {
-  name: string; description: string; similes?: string[];
-  alwaysRun?: boolean; examples?: EvaluatorExample[];
-  validate(runtime: IAgentRuntime, message: Memory, state?: State): Promise<boolean>;
-  handler(runtime: IAgentRuntime, message: Memory, state?: State): Promise<any>;
-}
-
-interface ActionResult { success: boolean; text?: string; error?: string;
-  values?: Record<string, any>; data?: Record<string, any>; }
-
-interface HandlerOptions {
-  actionContext?: { previousResults: ActionResult[]; currentStep: number; totalSteps: number; };
-  actionPlan?: ActionPlan;
+  id?: UUID; entityId?: UUID; agentId?: UUID;
+  roomId?: UUID; worldId?: UUID;
+  content: Content; embedding?: number[];
+  unique?: boolean; similarity?: number;
+  metadata?: MemoryMetadata;
 }
 ```
 
-### Plugin (types/plugin.ts)
-```typescript
-interface Plugin {
-  name: string; description?: string; priority?: number;
-  dependencies?: string[]; testDependencies?: string[];
-  init?(config: Record<string, string>, runtime: IAgentRuntime): Promise<void>;
-  actions?: Action[]; providers?: Provider[]; evaluators?: Evaluator[];
-  services?: ServiceClass[]; routes?: Route[]; events?: Record<string, Function[]>;
-  tests?: TestSuite; config?: Record<string, any>; schema?: Record<string, any>;
-  adapter?: IDatabaseAdapter; models?: Record<string, ModelHandler[]>;
-}
+**Changes from v1.7.x:** `userId` → `entityId`, `worldId` added, typed MemoryType enum, MemoryScope for visibility.
 
-interface Project { agents: ProjectAgent[] }
-interface ProjectAgent { character: Character; init?(runtime: IAgentRuntime): Promise<void>;
-  plugins?: (string | Plugin)[]; tests?: TestSuite; }
-```
+### Model System
 
-### Events (types/events.ts)
-```
-World: WORLD_JOINED, WORLD_CONNECTED, WORLD_LEFT
-Entity: ENTITY_JOINED, ENTITY_LEFT, ENTITY_UPDATED
-Room: ROOM_JOINED, ROOM_LEFT
-Message: MESSAGE_RECEIVED, MESSAGE_SENT, MESSAGE_DELETED
-Channel: CHANNEL_CLEARED
-Voice: VOICE_MESSAGE_RECEIVED, VOICE_MESSAGE_SENT
-Interaction: REACTION_RECEIVED, POST_GENERATED, INTERACTION_RECEIVED
-Run: RUN_STARTED, RUN_ENDED, RUN_TIMEOUT
-Action: ACTION_STARTED, ACTION_COMPLETED
-Evaluator: EVALUATOR_STARTED, EVALUATOR_COMPLETED
-Model: MODEL_USED
-Embedding: EMBEDDING_GENERATION_REQUESTED/COMPLETED/FAILED
-Control: CONTROL_MESSAGE
-Form: FORM_FIELD_CONFIRMED, FORM_FIELD_CANCELLED
-```
-PlatformPrefix: DISCORD, TELEGRAM, X
-
-### Models (types/model.ts)
 ```typescript
 const ModelType = {
   TEXT_SMALL, TEXT_LARGE, TEXT_COMPLETION,
-  TEXT_REASONING_SMALL, TEXT_REASONING_LARGE,  // NEW
+  TEXT_REASONING_SMALL, TEXT_REASONING_LARGE,
   TEXT_EMBEDDING, TEXT_TOKENIZER_ENCODE, TEXT_TOKENIZER_DECODE,
   IMAGE, IMAGE_DESCRIPTION, TRANSCRIPTION, TEXT_TO_SPEECH,
   AUDIO, VIDEO, OBJECT_SMALL, OBJECT_LARGE,
-  RESEARCH,  // NEW - deep research with web/file/code/MCP tools
-} as const;
-
-type LLMMode = 'DEFAULT' | 'SMALL' | 'LARGE';  // Runtime model override
-```
-
-MODEL_SETTINGS per-model-type: TEXT_SMALL_TEMPERATURE, TEXT_LARGE_MAX_TOKENS, etc.
-VECTOR_DIMS: SMALL(384), MEDIUM(512), LARGE(768), XL(1024), XXL(1536), XXXL(3072)
-
-### Services (types/service.ts)
-```typescript
-abstract class Service {
-  runtime!: IAgentRuntime;
-  static serviceType: string;
-  capabilityDescription?: string;
-  static start(runtime: IAgentRuntime): Promise<Service>;
-  stop?(): Promise<void>;
-}
-
-const ServiceType = {
-  transcription, video, browser, pdf, aws_s3, web_search, email, tee,
-  task, wallet, lp_pool, token_data, message_service, message, post, unknown
 } as const;
 ```
 
-ServiceBuilder fluent API:
+Plugins register model handlers:
 ```typescript
-createService<T>(serviceType).withDescription(desc).withStart(fn).withStop(fn).build()
-defineService({ serviceType, description, start, stop })  // declarative
+runtime.registerModel(ModelType.TEXT_LARGE, handler, 'openai', 10);
 ```
 
-### State (types/state.ts)
+Multiple handlers per type; highest priority wins with provider fallback.
+
+Usage:
 ```typescript
-interface State {
-  values: { agentName: string; actionNames: string; providers: string; [key: string]: unknown };
-  data: StateData;
-  text: string;
-}
-
-interface StateData {
-  room?: Room; world?: World; entity?: Entity;
-  providers?: Record<string, Record<string, unknown>>;
-  actionPlan?: ActionPlan;
-  actionResults?: ActionResult[];
-  workingMemory?: Record<string, WorkingMemoryEntry>;
-  [key: string]: unknown;
-}
-
-interface ActionPlan {
-  thought: string; totalSteps: number; currentStep: number;
-  steps: ActionPlanStep[];
-}
-interface ActionPlanStep {
-  action: string; status: 'pending' | 'completed' | 'failed';
-  error?: string; result?: ActionResult;
-}
+const text = await runtime.useModel(ModelType.TEXT_LARGE, { prompt, temperature: 0.7 });
+const text = await runtime.useModel(ModelType.TEXT_LARGE, { prompt, onStreamChunk: (chunk) => {} });
+const obj = await runtime.useModel(ModelType.OBJECT_SMALL, { prompt, schema, output: 'object' });
 ```
 
-### Environment (types/environment.ts)
-- **Entity**: id, names: string[], metadata, agentId, components?: Component[]
-- **Component**: id, entityId, worldId, roomId, type, data, metadata, createdAt, updatedAt
-- **World**: id, name, agentId, serverId, metadata (WorldMetadata)
-- **Room**: id, name, source, type (ChannelType), channelId, messageServerId, worldId
-- **Role**: OWNER, ADMIN, NONE
-- **Relationship**: entityA, entityB, metadata, createdAt
+## Event System
 
-### Messaging (types/messaging.ts)
-- **SOCKET_MESSAGE_TYPE**: ROOM_JOINING(1), SEND_MESSAGE(2), MESSAGE(3), ACK(4), THINKING(5), CONTROL(6)
-- **ControlMessage**: type 'control', payload { action: 'disable_input'|'enable_input' }
-- **MessageResult**: messageId, userMessage, agentResponses
-- **MESSAGE_STREAM_EVENT** for streaming chunks
-
-### Streaming (types/streaming.ts)
-- **IStreamExtractor**: { done: boolean; push(chunk: string): string; reset(): void; flush?(): string }
-- Implementations: PassthroughExtractor, XmlTagExtractor (10-char safety margin), ResponseStreamExtractor
-- **IStreamingRetryState**: getStreamedText, isComplete, reset
-
-### Tasks (types/task.ts)
-- **TaskWorker**: { name, execute(runtime, options, task), validate?(message, state) }
-- **Task**: id, roomId, worldId, entityId, metadata (TaskMetadata), status, dueAt
-- **TaskMetadata**: priority, updateInterval, scheduledAt, completedAt, options, values
-- Tags: `queue` (one-time eligible), `repeat` (persists after execution), `immediate` (run ASAP)
-
-### Payment (types/payment.ts) — NEW
-x402 cryptocurrency payments: PaymentConfigDefinition, X402Config, X402Accepts, X402Response
-
-### Database (types/database.ts)
-- **IDatabaseAdapter<DB>**: Agent/Entity/Component/Memory/Embedding/Log/World/Room/Participant/Relationship/Cache/Task CRUD + migrations
-- **RunStatus**: "started" | "completed" | "timeout" | "error"
-- **AgentRunSummary**: Run tracking with timing metrics
-- Log types: ActionLogBody, ModelLogBody, EvaluatorLogBody, EmbeddingLogBody
-
-### Runtime (types/runtime.ts)
-IAgentRuntime extends IDatabaseAdapter. Key methods:
-- processActions, composeState, evaluate, ensureConnection
-- getService<T>, getServicesByType<T>, getAllServices, hasService, getServiceLoadPromise
-- useModel<T>(type, params, provider?), registerModel, getModel
-- registerSendHandler(source, handler), sendMessageToTarget
-- startRun, endRun, getCurrentRunId
-- registerEvent<T>, emitEvent<T>
-- queueEmbeddingGeneration(memory, priority?)
-- getSetting, setSetting, isActionPlanningEnabled, getLLMMode
-- registerTaskWorker, getTaskWorker
-
-## AgentRuntime Class (runtime.ts — 4076 lines)
-
-Key properties:
 ```typescript
-class AgentRuntime implements IAgentRuntime {
-  agentId: UUID; character: Character; adapter: IDatabaseAdapter;
-  actions: Action[]; evaluators: Evaluator[]; providers: Provider[]; plugins: Plugin[];
-  events: RuntimeEventStorage;
-  services: Map<ServiceTypeName, Service[]>;
-  models: Map<string, ModelHandler[]>;
-  routes: Route[];
-  messageService: IMessageService | null;
-  enableAutonomy: boolean;
-  maxWorkingMemoryEntries: number; // default: 50
-  private servicePromises: Map<string, Promise<Service>>;
-  private currentRunId?: UUID;
+enum EventType {
+  WORLD_JOINED, WORLD_CONNECTED, WORLD_LEFT,
+  ENTITY_JOINED, ENTITY_LEFT, ENTITY_UPDATED,
+  ROOM_JOINED, ROOM_LEFT,
+  MESSAGE_RECEIVED, MESSAGE_SENT, MESSAGE_DELETED,
+  CHANNEL_CLEARED,
+  VOICE_MESSAGE_RECEIVED, VOICE_MESSAGE_SENT,
+  REACTION_RECEIVED, POST_GENERATED, INTERACTION_RECEIVED,
+  RUN_STARTED, RUN_ENDED, RUN_TIMEOUT,
+  ACTION_STARTED, ACTION_COMPLETED,
+  EVALUATOR_STARTED, EVALUATOR_COMPLETED,
+  MODEL_USED,
+  EMBEDDING_GENERATION_REQUESTED, EMBEDDING_GENERATION_COMPLETED, EMBEDDING_GENERATION_FAILED,
+  CONTROL_MESSAGE,
 }
 ```
 
-Constructor options: conversationLength, agentId, character, plugins, adapter, settings, logLevel, disableBasicCapabilities, enableExtendedCapabilities, actionPlanning, llmMode, checkShouldRespond, enableAutonomy.
+Plugin registration:
+```typescript
+events: {
+  [EventType.MESSAGE_RECEIVED]: [async (payload) => { /* payload.runtime, payload.message */ }],
+}
+```
 
-## Bootstrap Plugin — Capability Tiers
+All payloads extend `EventPayload { runtime, source, onComplete? }`. Uses `EventTarget` (Bun-native).
 
-Created via `createBootstrapPlugin(config?: CapabilityConfig)`.
+## Entity Component System (Replaces User System)
 
-**Basic (default):**
-- Providers: actions, actionState, attachments, capabilities, character, contextBench, entities, evaluators, providers, recentMessages, time, world
-- Actions: reply, ignore, none
-- Services: TaskService, EmbeddingGenerationService, TrajectoryLoggerService
+```typescript
+interface Entity {
+  id?: UUID; names?: string[];
+  metadata?: Record<string, unknown>;
+  agentId: UUID; components?: Component[];
+}
 
-**Extended (ENABLE_EXTENDED_CAPABILITIES):**
-- +Providers: choice, contacts, facts, followUps, knowledge, relationships, role, settings
-- +Actions: addContact, choice, followRoom, generateImage, muteRoom, removeContact, scheduleFollowUp, searchContacts, sendMessage, unfollowRoom, unmuteRoom, updateContact, updateEntity, updateRole, updateSettings
-- +Evaluators: reflection, relationshipExtraction
-- +Services: RolodexService, FollowUpService
+interface Component {
+  id?: UUID; entityId: UUID; agentId: UUID;
+  roomId: UUID; worldId?: UUID;
+  type: string; data: Record<string, unknown>;
+}
+```
 
-**Autonomy (ENABLE_AUTONOMY):**
-- +Providers: adminChat, autonomyStatus
-- +Actions: sendToAdmin
-- +Services: AutonomyService
-- +Routes: autonomyRoutes
+Key functions: `createUniqueUuid(agentId, externalId)`, `findEntityByName()`, `getEntityDetails()`.
 
-Event handlers: REACTION_RECEIVED, POST_GENERATED, MESSAGE_SENT, WORLD_JOINED, WORLD_CONNECTED, ENTITY_JOINED, ENTITY_LEFT, ACTION_STARTED, ACTION_COMPLETED, EVALUATOR_STARTED, EVALUATOR_COMPLETED, RUN_STARTED, RUN_ENDED, RUN_TIMEOUT, CONTROL_MESSAGE
+Plugins define component types:
+```typescript
+componentTypes: [{ name: 'wallet_info', schema: { address: { type: 'string' } } }]
+```
 
-## Message Service (DefaultMessageService)
+## Task System
 
-Two processing modes:
-- **Single-Shot** (`runSingleShotCore`): One LLM call → thought + actions + response. Retry for missing fields. Auto parameter repair.
-- **Multi-Step** (`runMultiStepCore`): Iterative workflow with accumulated context, provider timeout protection, summary generation.
+```typescript
+interface TaskWorker {
+  name: string;
+  execute: (runtime, options, task) => Promise<void>;
+  validate?: (runtime, message, state) => Promise<boolean>;
+}
+```
 
-Response decision: DM/voice/API auto-respond. Platform mentions bypass eval. Others defer to LLM. Configurable via SHOULD_RESPOND_BYPASS_TYPES/SOURCES.
+Tags: `queue` (picked up by TaskService), `repeat` (recurring), `immediate` (run ASAP).
+TaskService polls every 1 second.
 
-Options: maxRetries, timeoutDuration, useMultiStep, maxMultiStepIterations, shouldRespondModel, onStreamChunk.
+## ElizaOS Orchestrator (Multi-Agent)
 
-## Prompt Templates (prompts.ts — Handlebars syntax)
+```typescript
+class ElizaOS extends EventTarget {
+  addAgents(agents: ProjectAgent[], options?: {
+    ephemeral?: boolean; autoStart?: boolean;
+    returnRuntimes?: boolean; skipMigrations?: boolean;
+  }): Promise<UUID[] | IAgentRuntime[]>;
+  startAgents(ids?: UUID[]): Promise<void>;
+  stopAgents(ids?: UUID[]): Promise<void>;
+  handleMessage(agent, message, options?): Promise<HandleMessageResult>;
+}
+```
 
-Decision: shouldRespondTemplate, messageHandlerTemplate
-Content: postCreationTemplate, replyTemplate, imageDescriptionTemplate
-Multi-step: multiStepDecisionTemplate, multiStepSummaryTemplate
-Contact: scheduleFollowUpTemplate, addContactTemplate, searchContactsTemplate, updateContactTemplate, removeContactTemplate
-Room: shouldFollowRoomTemplate, shouldMuteRoomTemplate, shouldUnfollowTemplate, shouldUnmuteTemplate
-Memory: initialSummarizationTemplate, updateSummarizationTemplate, longTermExtractionTemplate, reflectionEvaluatorTemplate
-Entity: entityResolutionTemplate, componentTemplate
-Settings: settingsSuccessTemplate, settingsFailureTemplate, settingsErrorTemplate, settingsCompletionTemplate
-Autonomy: autonomyContinuousFirstTemplate, autonomyContinuousContinueTemplate, autonomyTaskFirstTemplate, autonomyTaskContinueTemplate
+Two modes: **Sync** (blocks until response) and **Async** (callback-based).
 
-Key pattern: Action ordering (REPLY first), XML-only responses, provider selection, parameter extraction in `<params>` blocks. UPPERCASE aliases for backward compatibility.
+## IAgentRuntime Key New Methods (vs v1.7.x)
 
-## Settings & Security
+```typescript
+interface IAgentRuntime {
+  // Model system
+  useModel<T>(modelType, params, provider?): Promise<any>;
+  registerModel(type, handler, provider, priority): void;
+  generateText(params): Promise<string>;
 
-- AES-256-GCM encryption (v2) with migration from v1 AES-256-CBC
-- SECRET_SALT management with 5-minute TTL caching
-- World settings auto-encrypted/decrypted in metadata
-- `initializeOnboarding()` for new server setup
+  // Event system
+  registerEvent(event, handler): void;
+  emitEvent(event | event[], params): Promise<void>;
 
-## Search (search.ts)
+  // Task system
+  registerTaskWorker(worker): void;
+  getTaskWorker(name): TaskWorker | undefined;
 
-Full BM25 implementation: Porter2 stemming, stop words, Unicode normalization, emoji removal, phrase search with sliding-window, configurable k1/b/field boosts.
+  // Entity system (replaces user)
+  ensureConnection(params): Promise<UUID>;
+  getEntityById(id): Promise<Entity>;
+  createEntity(entity): Promise<UUID>;
 
-## InMemoryAdapter (database/inMemoryAdapter.ts)
+  // Service enhancements
+  getServicesByType<T>(type): T[];
+  getAllServices(): Map<string, Service[]>;
+  hasService(type): boolean;
+  getServiceLoadPromise(type): Promise<Service>;
 
-For benchmarks, tests, serverless/ephemeral runs. Maps for all entities, bidirectional participant-room lookups, cascading deletions.
+  // Message routing
+  registerSendHandler(platform, handler): void;
+  sendMessageToTarget(target, content): Promise<void>;
 
-## Breaking Changes from v1 → v2
+  // Run tracking
+  startRun(runId): void;
+  endRun(runId): void;
+  getCurrentRunId(): UUID | undefined;
 
-1. Package restructuring (packages/core → packages/typescript, etc.)
-2. CLI renamed: @elizaos/cli → elizaos package
-3. Bootstrap integrated into core (not separate plugin-bootstrap)
-4. Memory types: 7 → 5 (DOCUMENT, FRAGMENT, MESSAGE, DESCRIPTION, CUSTOM)
-5. Memory scope added (shared, private, room)
-6. Protobuf base types (all types extend proto-generated, omit $typeName/$unknown)
-7. Entity component system for metadata
-8. New events (embedding, form, channel), some renamed (RUN_ENDED, RUN_TIMEOUT)
-9. Server/Client packages removed as top-level
-10. Plugins moved to root-level plugins/ directory
-11. ServiceBuilder fluent API alongside class extension pattern
-12. Multi-language SDKs (Python, Rust) via interop package
+  // Settings
+  getSetting(key): string | boolean | number | null;
+  setSetting(key, value): void;
+}
+```
+
+## Settings Resolution Order (highest → lowest)
+
+1. Request-context entity settings (per-entity, multi-tenant)
+2. `character.secrets[key]`
+3. `character.settings[key]`
+4. `character.settings.secrets[key]`
+5. `runtime.settings[key]` (from constructor)
+
+Strings auto-decrypted (AES-256-CBC). `'true'`/`'false'` coerced to booleans.
+
+## Database Schema
+
+Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
+
+**Embedding table:** 6 vector dimension columns (384, 512, 768, 1024, 1536, 3072) in one table.
+**Row-Level Security:** Optional per-entity isolation via `ENABLE_DATA_ISOLATION=true`.
+
+## Breaking Changes from v1.7.x → v2
+
+| Area | v1.7.x | v2 |
+|------|--------|-----|
+| User system | `ensureUserExists()`, userId | Entity system: `ensureConnection()`, entityId |
+| Service lifecycle | `new Service()` + `initialize()` | Static `Service.start(runtime)` returns instance |
+| Service creation | Extend class only | + `createService()` / `defineService()` builders |
+| Model usage | Direct API calls | `runtime.useModel()` with handler registry |
+| Event system | None (ad-hoc) | Formal EventType enum + plugin event handlers |
+| State | Flat `{ [key]: string }` | Structured `{ values, data, text }` |
+| Memory | userId field | entityId field, MemoryType enum, MemoryScope |
+| Action results | `void` / boolean | `ActionResult` with required `success` field |
+| Action chaining | Not supported | `ActionContext` with `previousResults` |
+| Plugin loading | Import objects | String names, auto-resolved with dependency sort |
+| Database | SQLite adapter | Drizzle ORM: PGLite / PostgreSQL / Neon |
+| Multi-agent | Not built-in | `ElizaOS` orchestrator class |
+| Templates | String interpolation | Handlebars with `{{#if}}` conditionals |
+| Testing | Vitest | `bun:test` |
+| Worlds | Not present | World/Room/Entity hierarchy with roles |
+| Task system | Not present | `TaskWorker` + persistent task queue |
+| Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
+| Settings encryption | Not present | AES-256-CBC for secrets |
+| External plugins | In monorepo | Separate `elizaos-plugins` org |

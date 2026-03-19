@@ -238,9 +238,39 @@ class PriceService extends Service {
 }
 ```
 
+### ServiceBuilder (v2 alternative to class extension)
+
+```typescript
+import { createService, defineService } from '@elizaos/core';
+
+// Fluent builder
+const MyService = createService<Service>('my-service')
+  .withDescription('Does something')
+  .withStart(async (runtime) => { /* init, return service instance */ })
+  .withStop(async () => { /* cleanup */ })
+  .build();
+
+// Declarative
+const MyService = defineService({
+  serviceType: 'my-service',
+  description: 'Does something',
+  start: async (runtime) => { /* return service instance */ },
+  stop: async () => { /* cleanup */ },
+});
+```
+
+### Service Retrieval
+
+```typescript
+runtime.getService<MyService>('my-service');       // First match
+runtime.getServicesByType<MyService>('my-service'); // All matches (multiple per type)
+runtime.hasService('my-service');                   // Boolean check
+await runtime.getServiceLoadPromise('my-service');  // Wait until ready
+```
+
 ### Predefined Service Types
 
-TRANSCRIPTION, VIDEO, BROWSER, PDF, REMOTE_FILES (S3), WEB_SEARCH, EMAIL, TEE, TASK, WALLET, LP_POOL, TOKEN_DATA, DATABASE_MIGRATION, PLUGIN_MANAGER, PLUGIN_CONFIGURATION, PLUGIN_USER_INTERACTION, MESSAGE_SERVICE
+TRANSCRIPTION, VIDEO, BROWSER, PDF, REMOTE_FILES (S3), WEB_SEARCH, EMAIL, TEE, TASK, WALLET, LP_POOL, TOKEN_DATA, MESSAGE_SERVICE, MESSAGE, POST, UNKNOWN
 
 ### Service Best Practices
 
@@ -397,6 +427,42 @@ export const myTable = pgTable('my_data', {
   agentId: uuid('agent_id').notNull()
     .references(() => agentTable.id, { onDelete: 'cascade' }),
 });
+```
+
+## Entity Component System (v2)
+
+Plugins can define component types for structured data attached to entities:
+
+```typescript
+const myPlugin: Plugin = {
+  componentTypes: [{
+    name: 'wallet_info',
+    schema: { address: { type: 'string' }, chain: { type: 'string' } },
+    validator: (data) => typeof data === 'object' && 'address' in data,
+  }],
+};
+
+// Usage in handlers
+const wallet = await runtime.getComponent(entityId, 'wallet_info', worldId);
+await runtime.createComponent({ entityId, agentId, roomId, type: 'wallet_info', data: { address: '0x...' } });
+await runtime.updateComponent(component);
+```
+
+## Send Handlers (v2 — Cross-Platform Messaging)
+
+Services can register platform-specific message send handlers:
+
+```typescript
+// In service start():
+runtime.registerSendHandler('discord', async (target, content) => {
+  await discordClient.send(target.channelId, content.text);
+});
+
+// Usage from any action:
+await runtime.sendMessageToTarget(
+  { platform: 'discord', channelId: '123', entityId: '456' },
+  { text: 'Hello from the agent!' }
+);
 ```
 
 ### Table Best Practices
