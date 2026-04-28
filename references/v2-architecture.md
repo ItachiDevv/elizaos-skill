@@ -1,34 +1,50 @@
 # ElizaOS v2 Architecture Reference
 
-Branch: `v2-develop`. Root version: `1.7.3-alpha.3` (all packages via Lerna). Node 23+, Bun 1.3.4+.
+Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
+Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
+Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
 
-## Package Restructuring
+## Package Layout (verified)
 
-External plugins (Discord, Telegram, Twitter, OpenAI, Anthropic, Ollama, Solana, EVM, etc.) are now in a **separate organization** (`elizaos-plugins/`), installed via npm/bun. Only foundation packages live in the monorepo.
+The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
 
-### Monorepo Packages (17 total)
+### Monorepo Packages (`packages/` — 21 entries on `develop`)
 
-| Package | Purpose |
+| Package dir | Purpose |
 |---------|---------|
-| `@elizaos/core` | Runtime, types, agents, database interfaces |
-| `@elizaos/cli` | CLI tool (`elizaos` command) |
-| `@elizaos/server` | Express.js backend + Socket.IO |
-| `@elizaos/client` | React web dashboard |
-| `@elizaos/api-client` | Type-safe REST/WebSocket API client |
-| `@elizaos/app` | Tauri desktop wrapper |
-| `@elizaos/plugin-bootstrap` | Default actions, providers, evaluators, events |
-| `@elizaos/plugin-sql` | Drizzle ORM adapter (PGLite, PostgreSQL, Neon) |
-| `@elizaos/plugin-starter` | Canonical plugin template |
-| `@elizaos/plugin-dummy-services` | Mock services for testing |
-| `@elizaos/plugin-quick-starter` | Minimal plugin scaffold |
-| `@elizaos/project-starter` | Full project scaffold |
-| `@elizaos/project-tee-starter` | TEE-enabled project scaffold |
-| `@elizaos/service-interfaces` | Service type definitions for cross-plugin contracts |
-| `@elizaos/config` | Shared config (tsconfig, eslint, prettier) |
-| `@elizaos/test-utils` | Test utilities |
-| `elizaos` | Alias for `@elizaos/cli` |
+| `agent/` | Agent runtime composition layer (wires runtime + plugins) |
+| `app/` | Tauri desktop wrapper |
+| `app-core/` | Shared application logic |
+| `benchmarks/` | Performance benchmarks |
+| `docs/` | Mintlify docs source (docs.elizaos.ai) |
+| `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
+| `examples/` | Example agent projects |
+| `homepage/` | elizaos.ai marketing site |
+| `interop/` | Cross-language plugin interoperability |
+| `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
+| `prompts/` | Standalone prompt templates |
+| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
+| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
+| `scenario-runner/` | Scenario testing harness |
+| `scenario-schema/` | Scenario format schema |
+| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
+| `shared/` | Cross-package utilities |
+| `skills/` | Reusable agent skill library |
+| `templates/` | Project templates for `elizaos create` |
+| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `ui/` | React web dashboard |
 
-**Note:** Python/Rust SDKs and protobuf schemas do NOT exist in v2 yet. ElizaOS v2 is TypeScript-only. The Tauri app uses Rust only for desktop wrapping.
+### Top-level `plugins/` directory (39 entries on `develop`)
+
+First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
+
+### `v2.0.0` Branch (separate experimental — different layout)
+
+For reference, the `v2.0.0` branch (not `develop`) has a different package set: `@schemas/`, `computeruse/`, `daemon/`, `elizaos/`, `interop/`, `milaidy/`, `mldy/`, `prompts/`, `psyop/`, `python/`, `rust/`, `samantha/`, `skills/`, `sweagent/`, `tui/`, `typescript/`. Adds computer-use, SWE-Agent integration, terminal UI, and a handful of named character/agent packages. Most users should track `develop`, not `v2.0.0`.
+
+### `main` Branch (legacy v1.4.4)
+
+TypeScript-only, frozen. 17 packages: `api-client, app, cli, client, config, core, elizaos, plugin-bootstrap, plugin-dummy-services, plugin-quick-starter, plugin-sql, plugin-starter, project-starter, project-tee-starter, server, service-interfaces, test-utils`. Use only if you need a frozen v1 baseline.
 
 ## Type System
 
@@ -209,7 +225,7 @@ interface Memory {
 }
 ```
 
-**Changes from v1.7.x:** `userId` → `entityId`, `worldId` added, typed MemoryType enum, MemoryScope for visibility.
+**Changes from v1.4.x:** `userId` → `entityId`, `worldId` added, typed MemoryType enum, MemoryScope for visibility.
 
 ### Model System
 
@@ -318,7 +334,7 @@ class ElizaOS extends EventTarget {
 
 Two modes: **Sync** (blocks until response) and **Async** (callback-based).
 
-## IAgentRuntime Key New Methods (vs v1.7.x)
+## IAgentRuntime Key New Methods (vs v1.4.x)
 
 ```typescript
 interface IAgentRuntime {
@@ -378,9 +394,9 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 **Embedding table:** 6 vector dimension columns (384, 512, 768, 1024, 1536, 3072) in one table.
 **Row-Level Security:** Optional per-entity isolation via `ENABLE_DATA_ISOLATION=true`.
 
-## Breaking Changes from v1.7.x → v2
+## Breaking Changes from v1.4.x → v2
 
-| Area | v1.7.x | v2 |
+| Area | v1.4.x | v2 |
 |------|--------|-----|
 | User system | `ensureUserExists()`, userId | Entity system: `ensureConnection()`, entityId |
 | Service lifecycle | `new Service()` + `initialize()` | Static `Service.start(runtime)` returns instance |
@@ -400,4 +416,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| External plugins | In monorepo | Separate `elizaos-plugins` org |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
+| Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |

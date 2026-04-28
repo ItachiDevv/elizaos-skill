@@ -1,12 +1,12 @@
 # ElizaOS Ecosystem & GitHub Organization Reference
 
-Organization: https://github.com/elizaos (57 repositories)
+Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-28)
 
 ## Core Framework
 
 | Repository | Stars | Description |
 |-----------|-------|-------------|
-| **eliza** | 17.5k | Main monorepo — @elizaos/core, @elizaos/server, @elizaos/client, @elizaos/cli, @elizaos/app, @elizaos/plugin-bootstrap, @elizaos/plugin-sql. MIT licensed, 580+ contributors. |
+| **eliza** | 18.3k | Main monorepo — polyglot v2 alpha (`develop` branch, `2.0.0-alpha.176+`). Packages: `agent, app, app-core, elizaos, interop, native-plugins, prompts, python, rust, schemas, shared, skills, templates, typescript, ui` plus 39 first-party plugins under top-level `plugins/`. MIT licensed. |
 | **docs** | 4 | Official documentation source (MDX/Mintlify). Hosted at docs.elizaos.ai |
 | **roadmap** | 15 | Project roadmap and planning |
 
@@ -46,8 +46,18 @@ Organization: https://github.com/elizaos (57 repositories)
 
 | Repository | Stars | Description |
 |-----------|-------|-------------|
-| **auto.fun** | 166 | Open-source Solana token launchpad. |
-| **elizaos.github.io** | 99 | Contributor leaderboard website. |
+| **autofun-idl** | 3 | Anchor IDLs for the auto.fun launchpad. The auto.fun product itself is NOT in this GitHub org — it lives at autofun.tech / auto.fun (closed-source or hosted elsewhere). |
+| **elizaos.github.io** | 104 | Contributor leaderboard website. |
+| **registry** | 21 | elizaOS plugin registry. |
+| **plugins-automation** | 7 | Automation scripts for the 150+ plugins in the eliza-plugins org. |
+| **mcp-gateway** | 13 | MCP gateway service. |
+| **openclaw-adapter** | 40 | Run Eliza plugins inside OpenClaw — wallets, connectors, services. |
+| **x402.elizaos.ai** | 3 | Dynamic x402 routing with intelligent content negotiation. |
+| **agentmemory** | 236 | Easy-to-use agent memory, powered by chromadb and postgres. |
+| **discord-summarizer** | 94 | Use LLMs to summarize discord channels into actionable insights. |
+| **LiveVideoChat** | 75 | Live video chat infrastructure. |
+| **cloud** / **cloud-mini-apps** / **eliza-app** / **mobile** | — | Eliza Cloud + native app surfaces. |
+| **agentshell / agentbrowser / agentcomms / agentlogger / agentaction / agentagenda / agentloop** | — | Modular standalone agent components — shell, browser, comms, logger, action chaining, task manager, run loop. |
 | **discord-summarizer** | 88 | LLM-powered Discord channel summarization. |
 | **mcp-gateway** | 11 | MCP (Model Context Protocol) gateway. |
 | **registry** | 21 | ARCHIVED — Original plugin registry. |
