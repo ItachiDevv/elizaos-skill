@@ -1,12 +1,12 @@
 # ElizaOS v2 Architecture Reference
 
 Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.535`** (2026-05-02).
+Verified against the live repo: 2026-05-04. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
-The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
+The monorepo has first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete. Note: `packages/python/`, `packages/rust/`, and `packages/interop/` were removed from `develop` as of 2026-05-04; `packages/typescript/` was renamed to `packages/core/`.
 
 ### Monorepo Packages (`packages/` — 21 entries on `develop`)
 
@@ -16,25 +16,25 @@ The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugi
 | `app/` | Tauri desktop wrapper |
 | `app-core/` | Shared application logic |
 | `benchmarks/` | Performance benchmarks |
+| `cloud-routing/` | Cloud routing layer |
+| `core/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
 | `docs/` | Mintlify docs source (docs.elizaos.ai) |
 | `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
 | `examples/` | Example agent projects |
 | `homepage/` | elizaos.ai marketing site |
-| `interop/` | Cross-language plugin interoperability |
 | `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
+| `os/` | OS-level integration layer |
 | `prompts/` | Standalone prompt templates |
-| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
-| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
 | `scenario-runner/` | Scenario testing harness |
 | `scenario-schema/` | Scenario format schema |
-| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
+| `schemas/` | Protobuf schemas — `buf.yaml` + `eliza/v1/*.proto` |
 | `shared/` | Cross-package utilities |
 | `skills/` | Reusable agent skill library |
 | `templates/` | Project templates for `elizaos create` |
-| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
 | `ui/` | React web dashboard |
+| `vault/` | Secrets and vault management |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+### Top-level `plugins/` directory (106 entries on `develop`)
 
 First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
 
@@ -416,5 +416,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (106 plugins on `develop`) |
 | Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |

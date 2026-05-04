@@ -1,6 +1,6 @@
 # ElizaOS Ecosystem & GitHub Organization Reference
 
-Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-28)
+Organization: https://github.com/elizaOS (5 public repositories — verified 2026-05-04; many repos appear to have been made private or transferred)
 
 ## Core Framework
 
