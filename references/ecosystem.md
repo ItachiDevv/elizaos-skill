@@ -1,12 +1,12 @@
 # ElizaOS Ecosystem & GitHub Organization Reference
 
-Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-28)
+Organization: https://github.com/elizaOS (8 public repositories — verified 2026-06-01; many formerly public repos have been made private or removed)
 
 ## Core Framework
 
 | Repository | Stars | Description |
 |-----------|-------|-------------|
-| **eliza** | 18.3k | Main monorepo — polyglot v2 alpha (`develop` branch, `2.0.0-alpha.176+`). Packages: `agent, app, app-core, elizaos, interop, native-plugins, prompts, python, rust, schemas, shared, skills, templates, typescript, ui` plus 39 first-party plugins under top-level `plugins/`. MIT licensed. |
+| **eliza** | 18.5k | Main monorepo — v2 release line (`develop` branch, `2.0.0-beta.0`, latest tag `v2.0.3`). 47 packages under `packages/`, 126+ first-party plugins under top-level `plugins/`. MIT licensed. |
 | **docs** | 4 | Official documentation source (MDX/Mintlify). Hosted at docs.elizaos.ai |
 | **roadmap** | 15 | Project roadmap and planning |
 
@@ -37,7 +37,7 @@ Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-2
 
 | Repository | Stars | Description |
 |-----------|-------|-------------|
-| **knowledge** | 61 | Ecosystem data pipeline: news, GitHub updates, discussion summaries. Python-based, feeds RAG systems. |
+| **knowledge** | 72 | Ecosystem data pipeline: news, GitHub updates, discussion summaries. Python-based, feeds RAG systems. |
 | **characters** | 45 | Collection of character files for agents. |
 | **characterfile** | 383 | Standard format specification for character data in agent/LLM contexts. |
 | **awesome-eliza** | 93 | Curated list of ElizaOS resources, plugins, tutorials, and community projects. |
@@ -47,7 +47,7 @@ Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-2
 | Repository | Stars | Description |
 |-----------|-------|-------------|
 | **autofun-idl** | 3 | Anchor IDLs for the auto.fun launchpad. The auto.fun product itself is NOT in this GitHub org — it lives at autofun.tech / auto.fun (closed-source or hosted elsewhere). |
-| **elizaos.github.io** | 104 | Contributor leaderboard website. |
+| **elizaos.github.io** | 105 | Contributor leaderboard website. |
 | **registry** | 21 | elizaOS plugin registry. |
 | **plugins-automation** | 7 | Automation scripts for the 150+ plugins in the eliza-plugins org. |
 | **mcp-gateway** | 13 | MCP gateway service. |
