@@ -9,11 +9,11 @@ description: >
   background tasks, event systems, model providers (OpenAI, Anthropic, Ollama, OpenRouter), or
   any code using @elizaos/core, @elizaos/cli, @elizaos/plugin-*, or the elizaos GitHub repos.
   Also use when discussing AI agent architecture, multi-agent orchestration, or the elizaos ecosystem.
-  Covers the v2 alpha (default `develop` branch — currently `2.0.0-alpha.176` in package.json,
-  latest tag `v2.0.0-alpha.442` as of 2026-04-27) with TypeScript / Python / Rust runtimes, protobuf
-  schemas, cross-language interop, capability tiers (Basic/Extended/Autonomy), ServiceBuilder API,
+  Covers the v2 stable line (default `develop` branch — currently `2.0.0-beta.0` in package.json,
+  latest stable tag `v2.0.3` as of 2026-05-20) with TypeScript runtime, Eliza Cloud deployment
+  packages, capability tiers (Basic/Extended/Autonomy), ServiceBuilder API,
   x402 payments, and Dexter SDK integration. Legacy v1 (1.4.4) lives on the `main` branch.
-  Last verified against the live repo: 2026-04-28.
+  Last verified against the live repo: 2026-06-08.
 ---
 
 # ElizaOS Expert Skill
@@ -51,54 +51,68 @@ Message In → Store in Memory → Compose State (all Providers) → shouldRespo
 
 Two processing modes: **Single-Shot** (one LLM call) and **Multi-Step** (iterative with accumulated context).
 
-### Branches & Versions (verified 2026-04-28)
+### Branches & Versions (verified 2026-06-08)
 
 | Branch | package.json | Status | Notes |
 |--------|---------|--------|---------|
-| `develop` (default) | `2.0.0-alpha.176` | Active alpha — this is the v2 line | 21 packages, 39 plugins, polyglot (TS+Python+Rust) |
+| `develop` (default) | `2.0.0-beta.0` | Active development — v2 stable line | 49 packages, 116+ plugins, TypeScript |
 | `main` | `1.4.4` | Legacy v1, frozen | TypeScript-only, 17 packages |
 | `v2-develop` | `1.4.4` | **Stale** — identical to `main`, 3956 commits behind develop | Don't use; migrated into `develop` |
-| `v2.0.0` | `2.0.0-alpha` | Separate experimental branch | Different package set incl. `computeruse/`, `sweagent/`, daemon-style packages |
 
-**Latest published tag:** `v2.0.0-alpha.442` (2026-04-27). New alpha tags ship from `develop` continuously — install via `bun i -g @elizaos/cli@alpha`. There is **no stable v2 release** yet — all v2 work has been alpha for 13+ months.
+**Latest published tag:** `v2.0.3` (2026-05-20). **v2 is now stable** — `v2.0.0` shipped May 2026 with `v2.0.3` as the current patch. Install via `bun i -g @elizaos/cli`.
 
-**Recommendation:** For new work target the **`develop` branch (v2 alpha)** — it's where all development happens. Only fall back to `main` (1.4.4) if you need a frozen TypeScript-only baseline; upstream development of v1 has stopped.
+**Recommendation:** For new work target the **`develop` branch (v2)** — it's where all development happens. Only fall back to `main` (1.4.4) if you need a frozen TypeScript-only baseline; upstream development of v1 has stopped.
 
-### Monorepo Layout — `develop` branch (verified)
+### Monorepo Layout — `develop` branch (verified 2026-06-08)
 
 ```
-packages/
+packages/             → 49 packages total
   agent/              → Agent runtime composition layer
   app/                → Tauri desktop wrapper
   app-core/           → Shared app logic
   benchmarks/         → Perf benchmarks
+  core/               → Core TypeScript SDK (npm: @elizaos/core)
   docs/               → Mintlify docs source (docs.elizaos.ai)
   elizaos/            → CLI (npm: @elizaos/cli)
   examples/           → Example agents
   homepage/           → elizaos.ai marketing site
-  interop/            → Cross-language plugin interop layer
-  native-plugins/     → Built-in plugins (sql, bootstrap, etc.)
+  logger/             → Standalone logger package
+  native/             → Native plugins/runtime (replaces native-plugins/)
+  os/                 → ElizaOS core OS layer
   prompts/            → Standalone prompt templates
-  python/             → Python runtime + SDK (pyproject.toml, uv-managed)
-  rust/               → Rust runtime + SDK (Cargo.toml, builds to native + WASM)
   scenario-runner/    → Scenario testing harness
-  scenario-schema/    → Scenario format schema
-  schemas/            → Protobuf schemas (buf.yaml; eliza/v1/*.proto)
   shared/             → Cross-package shared utilities
   skills/             → Reusable agent skill library
-  templates/          → Project templates for `elizaos create`
-  typescript/         → Core TypeScript SDK (npm: @elizaos/core)
+  tui/                → Terminal UI
   ui/                 → React web dashboard
+  cloud-api/          → Eliza Cloud API
+  cloud-frontend/     → Eliza Cloud frontend
+  cloud-infra/        → Eliza Cloud infrastructure
+  cloud-routing/      → Eliza Cloud routing
+  cloud-sdk/          → Eliza Cloud SDK
+  cloud-services/     → Eliza Cloud services
+  cloud-shared/       → Eliza Cloud shared utilities
+  plugin-host-shim/        → Plugin host shim (cross-runtime)
+  plugin-host-shim-android/ → Android plugin shim
+  plugin-host-shim-electrobun/ → Electrobun plugin shim
+  plugin-host-shim-ios/    → iOS plugin shim
+  plugin-worker-runtime/   → Worker runtime for plugins
+  ... (+ alberta, browser-bridge-extension, chip, contracts, feed,
+         os-homepage, plugin-remote-manifest, plugin-sub-agent-claude-code,
+         registry, research/, robot, scripts, security, skills, soc2-verify,
+         sweagent, test, training, vault)
 
-plugins/              → 39 first-party plugins at top level (Discord,
-                        Telegram, Twitter, Solana, EVM, OpenAI, Anthropic,
-                        Ollama, OpenRouter, Google, knowledge, MCP, etc.)
+plugins/              → 116+ first-party plugins at top level (Discord,
+                        Telegram, Twitter, Farcaster, OpenAI, Anthropic,
+                        Google, Groq, MCP, local-inference, native mobile
+                        plugins, cloud integrations, and many more)
 ```
 
 **Key facts to internalize:**
-- **Python and Rust SDKs are real and shipping** on `develop` — `packages/python/elizaos/` (pyproject + uv lock) and `packages/rust/src/` (Cargo + WASM build via `build-wasm.sh`).
+- **v2 is now stable.** `v2.0.0` shipped May 2026; `v2.0.3` is the current stable tag. The alpha/beta period ended.
 - Plugins are **inside** the monorepo at top-level `plugins/`, not in a separate `elizaos-plugins` org. The old separate-org claim is obsolete.
-- Capability tiers (Basic/Extended/Autonomy) are mirrored across all 3 SDKs — `AutonomyService` exists in TS, Python, and Rust (verified via `ENABLE_AUTONOMY` symbol search).
+- The **Python and Rust SDK packages** (`packages/python/`, `packages/rust/`) that existed in earlier alpha builds are **no longer present** in the develop branch as of 2026-06-08. The runtime is now TypeScript-only in the monorepo.
+- The monorepo has grown significantly: 49 packages (was 21) and 116+ plugins (was 39), with major additions for Eliza Cloud and native mobile support.
 
 ### `v2.0.0` Branch (Separate Experimental)
 
@@ -113,14 +127,14 @@ Adds `computeruse/` (computer-use capabilities), `sweagent/` (SWE-Agent integrat
 
 ### Key v2 Capabilities (vs legacy v1.4.4 on `main`)
 
-Entity Component System (replaces user system), ServiceBuilder (`createService()`/`defineService()`), formal Event system (30+ EventType enum), Task system (`TaskWorker` + persistent queue), multi-agent orchestration (`ElizaOS` class), model handler registry with priority routing, action chaining (`ActionContext`), working memory, x402 payment types, run tracking, capability tiers, autonomy mode, polyglot (TS/Python/Rust) runtimes with shared protobuf wire format.
+Entity Component System (replaces user system), ServiceBuilder (`createService()`/`defineService()`), formal Event system (30+ EventType enum), Task system (`TaskWorker` + persistent queue), multi-agent orchestration (`ElizaOS` class), model handler registry with priority routing, action chaining (`ActionContext`), working memory, x402 payment types, run tracking, capability tiers, autonomy mode, native mobile plugin shims, Eliza Cloud deployment suite.
 
 For full v2 details, read **[v2 Architecture](references/v2-architecture.md)**.
 
 ## Quick Start
 
 ```bash
-bun install -g @elizaos/cli@alpha   # @alpha = v2 develop line; omit for legacy v1.4.4
+bun install -g @elizaos/cli         # v2 stable; add @alpha only to track bleeding-edge develop
 elizaos create my-agent              # Scaffold project
 elizaos env edit-local               # Set API keys
 elizaos start                        # Run (web UI at localhost:3000)
@@ -540,7 +554,7 @@ CTX_KNOWLEDGE_ENABLED=true
 - **Service `config` property**: Do NOT use `config` as a property name in Service subclasses — conflicts with `Service.config?: Metadata` base type. Rename to `paymentConfig`, `serviceConfig`, etc.
 - **Plugin `services` field**: Pass the **class** (`[MyService]`), NOT an instance (`[new MyService()]`).
 - **Handler `state` is optional**: Type is `State | undefined`. Always use `state?.data?.actionResults` with optional chaining.
-- **Alpha churn**: `develop` ships a new alpha tag almost daily (alpha.176 → alpha.442 over the last few weeks). Pin a specific alpha version in `package.json` rather than tracking `@alpha` in production.
+- **v2 is stable**: `v2.0.3` is the current stable release (May 2026). Use `bun i -g @elizaos/cli` (no `@alpha` suffix needed). Pin a specific version in production `package.json`.
 - **`v2-develop` is dead**: It's identical to `main` (v1.4.4). All v2 work is on `develop` — don't get fooled by the branch name.
 - **`runtime.getSetting()` returns `string | boolean | number | null`**: Cast with `String(val)` or null-check before use.
 - **Logger is Pino-style**: `runtime.logger.info(obj, message)` — object first, string second. Or just `runtime.logger.info(message)`.
