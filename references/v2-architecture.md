@@ -1,42 +1,72 @@
 # ElizaOS v2 Architecture Reference
 
-Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Branch: **`develop`** (default branch — v2 stable lives here, NOT `v2-develop` which is stale v1).
+Root version: **`2.0.0-beta.0`** in `develop/package.json`; latest stable tag **`v2.0.3`** (2026-05-20). **v2 is now stable** — `v2.0.0` shipped May 2026.
+Verified against the live repo: 2026-06-08. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
-The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
+The monorepo is **TypeScript-first** with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete. Note: Python and Rust SDK packages that existed in the alpha are no longer present in the monorepo as of 2026-06-08.
 
-### Monorepo Packages (`packages/` — 21 entries on `develop`)
+### Monorepo Packages (`packages/` — 49 entries on `develop`)
 
 | Package dir | Purpose |
 |---------|---------|
-| `agent/` | Agent runtime composition layer (wires runtime + plugins) |
+| `agent/` | Agent runtime composition layer |
+| `alberta/` | (Internal package) |
 | `app/` | Tauri desktop wrapper |
 | `app-core/` | Shared application logic |
 | `benchmarks/` | Performance benchmarks |
+| `browser-bridge-extension/` | Browser bridge extension |
+| `chip/` | (Internal package) |
+| `cloud-api/` | Eliza Cloud API |
+| `cloud-frontend/` | Eliza Cloud frontend |
+| `cloud-infra/` | Eliza Cloud infrastructure |
+| `cloud-routing/` | Eliza Cloud routing |
+| `cloud-sdk/` | Eliza Cloud SDK |
+| `cloud-services/` | Eliza Cloud services |
+| `cloud-shared/` | Eliza Cloud shared utilities |
+| `contracts/` | Smart contract integrations |
+| `core/` | Core TypeScript SDK (publishes as `@elizaos/core`; replaces `typescript/`) |
 | `docs/` | Mintlify docs source (docs.elizaos.ai) |
+| `docs-elizacloud-redirect/` | Docs redirect for Eliza Cloud |
 | `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
 | `examples/` | Example agent projects |
+| `feed/` | Feed aggregation package |
 | `homepage/` | elizaos.ai marketing site |
-| `interop/` | Cross-language plugin interoperability |
-| `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
+| `logger/` | Standalone logger package |
+| `native/` | Native plugins/runtime (replaces `native-plugins/`) |
+| `os/` | ElizaOS core OS layer |
+| `os-homepage/` | OS homepage |
+| `plugin-host-shim/` | Plugin host shim (cross-runtime) |
+| `plugin-host-shim-android/` | Android plugin host shim |
+| `plugin-host-shim-electrobun/` | Electrobun plugin host shim |
+| `plugin-host-shim-ios/` | iOS plugin host shim |
+| `plugin-remote-manifest/` | Remote plugin manifest |
+| `plugin-sub-agent-claude-code/` | Claude Code sub-agent plugin |
+| `plugin-worker-runtime/` | Worker runtime for plugins |
 | `prompts/` | Standalone prompt templates |
-| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
-| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
+| `registry/` | Plugin registry |
+| `research/` | Research and evidence tracking |
+| `robot/` | Robot/automation package |
 | `scenario-runner/` | Scenario testing harness |
-| `scenario-schema/` | Scenario format schema |
-| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
+| `scripts/` | Build and utility scripts |
+| `security/` | Security utilities |
 | `shared/` | Cross-package utilities |
 | `skills/` | Reusable agent skill library |
-| `templates/` | Project templates for `elizaos create` |
-| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `soc2-verify/` | SOC2 verification tooling |
+| `sweagent/` | SWE-Agent integration |
+| `test/` | Shared test utilities |
+| `training/` | Training data and utilities |
+| `tui/` | Terminal UI |
 | `ui/` | React web dashboard |
+| `vault/` | Secure secrets vault |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+**Packages removed since April 2026 alpha:** `interop/`, `native-plugins/`, `python/`, `rust/`, `scenario-schema/`, `schemas/`, `templates/`, `typescript/`. The Python and Rust SDK packages are no longer present in the monorepo as of 2026-06-08.
 
-First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
+### Top-level `plugins/` directory (116+ entries on `develop`)
+
+First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster, iMessage, Slack-like services), LLM providers (OpenAI, Anthropic, Google, Groq, LM Studio, local inference), native mobile plugins (camera, calendar, contacts, messages, phone, screen capture, etc.), cloud integrations, and 116+ total entries.
 
 ### `v2.0.0` Branch (separate experimental — different layout)
 
@@ -416,5 +446,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
-| Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (116+ plugins on `develop`) |
+| Runtime languages | TypeScript only | TypeScript (Python + Rust packages removed from monorepo as of 2026-06) |
