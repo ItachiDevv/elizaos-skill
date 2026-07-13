@@ -1,42 +1,62 @@
 # ElizaOS v2 Architecture Reference
 
-Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Branch: **`develop`** (default branch — v2 beta lives here, NOT `v2-develop` which is stale v1).
+Root version: **`2.0.4`** in `develop/package.json`; latest published tag **`v2.0.3-beta.7`** (2026-06-28).
+Verified against the live repo: 2026-07-13. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
 The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
 
-### Monorepo Packages (`packages/` — 21 entries on `develop`)
+### Monorepo Packages (`packages/` — 39 entries on `develop`, verified 2026-07-13)
+
+The package layout was significantly restructured between April and July 2026. Notable changes: `typescript/` was renamed to `core/`, the polyglot SDKs (`python/`, `rust/`) and `interop/`/`schemas/` were removed from `packages/`, and many new packages were added (cloud, auth, native, OS-level, browser extension, vault, etc.).
 
 | Package dir | Purpose |
 |---------|---------|
 | `agent/` | Agent runtime composition layer (wires runtime + plugins) |
 | `app/` | Tauri desktop wrapper |
 | `app-core/` | Shared application logic |
+| `auth/` | Authentication services |
 | `benchmarks/` | Performance benchmarks |
+| `browser-extension/` | Browser extension |
+| `cloud/` | Eliza Cloud integration |
+| `cloud-ui/` | Cloud UI dashboard |
+| `contracts/` | Smart contracts |
+| `core/` | Core TypeScript SDK (publishes as `@elizaos/core`; formerly `typescript/`) |
+| `corpus-tools/` | Corpus and training data tools |
 | `docs/` | Mintlify docs source (docs.elizaos.ai) |
-| `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
+| `elizaos/` | CLI (publishes to npm as `elizaos`; formerly `@elizaos/cli`) |
+| `evidence/` | PR/agent evidence and attachment storage |
 | `examples/` | Example agent projects |
+| `feed/` | Agent feed system |
 | `homepage/` | elizaos.ai marketing site |
-| `interop/` | Cross-language plugin interoperability |
-| `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
+| `import-conversations/` | Conversation import tools |
+| `lifeops-bench/` | LifeOps benchmarking |
+| `logger/` | Standalone logger package |
+| `native/` | Native platform integrations |
+| `os/` | OS-level agent capabilities |
+| `os-homepage/` | OS homepage |
+| `plugin-remote-manifest/` | Remote plugin manifest handling |
+| `plugin-sub-agent-claude-code/` | Claude Code sub-agent plugin |
+| `plugin-worker-runtime/` | Worker runtime plugin |
 | `prompts/` | Standalone prompt templates |
-| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
-| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
+| `registry/` | Plugin registry |
 | `scenario-runner/` | Scenario testing harness |
-| `scenario-schema/` | Scenario format schema |
-| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
+| `scripts/` | Build and utility scripts |
+| `security/` | Security utilities |
 | `shared/` | Cross-package utilities |
 | `skills/` | Reusable agent skill library |
-| `templates/` | Project templates for `elizaos create` |
-| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `test/` | Test utilities |
+| `training/` | Training and fine-tuning tools |
 | `ui/` | React web dashboard |
+| `vault/` | Secrets/vault management |
+| `deploy/` | Deployment configs (e.g. systemd) |
+| `tools/` | Miscellaneous tools (e.g. voice-evidence-harness) |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+### Top-level `plugins/` directory (104+ entries on `develop`, verified 2026-07-13)
 
-First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
+First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster, iMessage, Bluesky, Matrix, Nostr), LLM providers (OpenAI, Anthropic, Ollama, Google, Groq, LM Studio, local inference), native mobile plugins, cloud apps, computer-use, GitHub, MCP, and many more (104+ total as of 2026-07-13).
 
 ### `v2.0.0` Branch (separate experimental — different layout)
 
