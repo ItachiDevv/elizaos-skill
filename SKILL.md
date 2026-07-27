@@ -9,11 +9,10 @@ description: >
   background tasks, event systems, model providers (OpenAI, Anthropic, Ollama, OpenRouter), or
   any code using @elizaos/core, @elizaos/cli, @elizaos/plugin-*, or the elizaos GitHub repos.
   Also use when discussing AI agent architecture, multi-agent orchestration, or the elizaos ecosystem.
-  Covers the v2 alpha (default `develop` branch — currently `2.0.0-alpha.176` in package.json,
-  latest tag `v2.0.0-alpha.442` as of 2026-04-27) with TypeScript / Python / Rust runtimes, protobuf
-  schemas, cross-language interop, capability tiers (Basic/Extended/Autonomy), ServiceBuilder API,
-  x402 payments, and Dexter SDK integration. Legacy v1 (1.4.4) lives on the `main` branch.
-  Last verified against the live repo: 2026-04-28.
+  Covers v2 beta (default `develop` branch — currently `2.0.4` in package.json,
+  latest tag `v2.0.3-beta.11` as of 2026-07-16) with TypeScript runtime, capability tiers
+  (Basic/Extended/Autonomy), ServiceBuilder API, x402 payments, and Dexter SDK integration.
+  Last verified against the live repo: 2026-07-27.
 ---
 
 # ElizaOS Expert Skill
@@ -51,54 +50,72 @@ Message In → Store in Memory → Compose State (all Providers) → shouldRespo
 
 Two processing modes: **Single-Shot** (one LLM call) and **Multi-Step** (iterative with accumulated context).
 
-### Branches & Versions (verified 2026-04-28)
+### Branches & Versions (verified 2026-07-27)
 
 | Branch | package.json | Status | Notes |
 |--------|---------|--------|---------|
-| `develop` (default) | `2.0.0-alpha.176` | Active alpha — this is the v2 line | 21 packages, 39 plugins, polyglot (TS+Python+Rust) |
-| `main` | `1.4.4` | Legacy v1, frozen | TypeScript-only, 17 packages |
-| `v2-develop` | `1.4.4` | **Stale** — identical to `main`, 3956 commits behind develop | Don't use; migrated into `develop` |
+| `develop` (default) | `2.0.4` | Active beta — this is the v2 line | 39 packages, 100+ plugins, TypeScript |
+| `main` | `2.0.4` | Active — same version as develop | TypeScript, 39 packages |
+| `v2-develop` | `1.4.4` | **Stale** — identical to old `main` (v1), 3956 commits behind develop | Don't use; migrated into `develop` |
 | `v2.0.0` | `2.0.0-alpha` | Separate experimental branch | Different package set incl. `computeruse/`, `sweagent/`, daemon-style packages |
 
-**Latest published tag:** `v2.0.0-alpha.442` (2026-04-27). New alpha tags ship from `develop` continuously — install via `bun i -g @elizaos/cli@alpha`. There is **no stable v2 release** yet — all v2 work has been alpha for 13+ months.
+**Latest published tag:** `v2.0.3-beta.11` (2026-07-16). The project has graduated from alpha to beta — install via `bun i -g @elizaos/cli@beta`.
 
-**Recommendation:** For new work target the **`develop` branch (v2 alpha)** — it's where all development happens. Only fall back to `main` (1.4.4) if you need a frozen TypeScript-only baseline; upstream development of v1 has stopped.
+**Recommendation:** For new work target the **`develop` branch (v2 beta)** — it's where all development happens.
 
-### Monorepo Layout — `develop` branch (verified)
+### Monorepo Layout — `develop` branch (verified 2026-07-27)
 
 ```
-packages/
+packages/             → 39 packages
   agent/              → Agent runtime composition layer
   app/                → Tauri desktop wrapper
   app-core/           → Shared app logic
+  auth/               → Authentication
   benchmarks/         → Perf benchmarks
+  browser-extension/  → Browser extension
+  cloud/              → Cloud backend
+  cloud-ui/           → Cloud UI
+  contracts/          → Smart contract bindings
+  core/               → Core TypeScript SDK (npm: @elizaos/core)
+  corpus-tools/       → Corpus utilities
+  deploy/             → Deployment tooling
   docs/               → Mintlify docs source (docs.elizaos.ai)
+  eliza-hub/          → Hub service
   elizaos/            → CLI (npm: @elizaos/cli)
+  evidence/           → Evidence collection
   examples/           → Example agents
+  feed/               → Feed aggregation
   homepage/           → elizaos.ai marketing site
-  interop/            → Cross-language plugin interop layer
-  native-plugins/     → Built-in plugins (sql, bootstrap, etc.)
+  import-conversations/ → Conversation import tools
+  lifeops-bench/      → Lifeops benchmarks
+  logger/             → Logging utilities
+  native/             → Native runtime layer
+  os/                 → OS-level integrations
+  plugin-remote-manifest/ → Remote plugin manifest
+  plugin-sub-agent-claude-code/ → Claude Code sub-agent plugin
+  plugin-worker-runtime/ → Worker runtime plugin
   prompts/            → Standalone prompt templates
-  python/             → Python runtime + SDK (pyproject.toml, uv-managed)
-  rust/               → Rust runtime + SDK (Cargo.toml, builds to native + WASM)
+  registry/           → Plugin registry
   scenario-runner/    → Scenario testing harness
-  scenario-schema/    → Scenario format schema
-  schemas/            → Protobuf schemas (buf.yaml; eliza/v1/*.proto)
+  scripts/            → Build and utility scripts
+  security/           → Security utilities
   shared/             → Cross-package shared utilities
   skills/             → Reusable agent skill library
-  templates/          → Project templates for `elizaos create`
-  typescript/         → Core TypeScript SDK (npm: @elizaos/core)
+  test/               → Test utilities
+  tools/              → Developer tools
+  training/           → Training data utilities
   ui/                 → React web dashboard
+  vault/              → Secret/credential management
 
-plugins/              → 39 first-party plugins at top level (Discord,
-                        Telegram, Twitter, Solana, EVM, OpenAI, Anthropic,
-                        Ollama, OpenRouter, Google, knowledge, MCP, etc.)
+plugins/              → 100+ first-party plugins at top level (Discord,
+                        Telegram, Twitter, Anthropic, OpenAI, Ollama,
+                        Google, MCP, native-* mobile/desktop plugins, etc.)
 ```
 
 **Key facts to internalize:**
-- **Python and Rust SDKs are real and shipping** on `develop` — `packages/python/elizaos/` (pyproject + uv lock) and `packages/rust/src/` (Cargo + WASM build via `build-wasm.sh`).
-- Plugins are **inside** the monorepo at top-level `plugins/`, not in a separate `elizaos-plugins` org. The old separate-org claim is obsolete.
-- Capability tiers (Basic/Extended/Autonomy) are mirrored across all 3 SDKs — `AutonomyService` exists in TS, Python, and Rust (verified via `ENABLE_AUTONOMY` symbol search).
+- Plugins are **inside** the monorepo at top-level `plugins/` (100+ plugins), not in a separate `elizaos-plugins` org.
+- **Python and Rust SDKs** (`packages/python/`, `packages/rust/`) are **no longer present** on `develop` as of 2026-07-27 — the monorepo has been restructured to TypeScript-only.
+- Capability tiers (Basic/Extended/Autonomy) remain in the core TypeScript SDK (`AutonomyService`).
 
 ### `v2.0.0` Branch (Separate Experimental)
 
@@ -540,7 +557,7 @@ CTX_KNOWLEDGE_ENABLED=true
 - **Service `config` property**: Do NOT use `config` as a property name in Service subclasses — conflicts with `Service.config?: Metadata` base type. Rename to `paymentConfig`, `serviceConfig`, etc.
 - **Plugin `services` field**: Pass the **class** (`[MyService]`), NOT an instance (`[new MyService()]`).
 - **Handler `state` is optional**: Type is `State | undefined`. Always use `state?.data?.actionResults` with optional chaining.
-- **Alpha churn**: `develop` ships a new alpha tag almost daily (alpha.176 → alpha.442 over the last few weeks). Pin a specific alpha version in `package.json` rather than tracking `@alpha` in production.
+- **Beta releases**: `develop` ships beta tags regularly (latest: `v2.0.3-beta.11`). Pin a specific beta version in `package.json` rather than tracking `@beta` in production.
 - **`v2-develop` is dead**: It's identical to `main` (v1.4.4). All v2 work is on `develop` — don't get fooled by the branch name.
 - **`runtime.getSetting()` returns `string | boolean | number | null`**: Cast with `String(val)` or null-check before use.
 - **Logger is Pino-style**: `runtime.logger.info(obj, message)` — object first, string second. Or just `runtime.logger.info(message)`.
