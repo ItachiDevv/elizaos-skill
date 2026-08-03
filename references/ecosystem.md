@@ -1,12 +1,12 @@
 # ElizaOS Ecosystem & GitHub Organization Reference
 
-Organization: https://github.com/elizaOS (64 repositories — verified 2026-04-28)
+Organization: https://github.com/elizaOS (17 public repositories — verified 2026-08-03)
 
 ## Core Framework
 
 | Repository | Stars | Description |
 |-----------|-------|-------------|
-| **eliza** | 18.3k | Main monorepo — polyglot v2 alpha (`develop` branch, `2.0.0-alpha.176+`). Packages: `agent, app, app-core, elizaos, interop, native-plugins, prompts, python, rust, schemas, shared, skills, templates, typescript, ui` plus 39 first-party plugins under top-level `plugins/`. MIT licensed. |
+| **eliza** | 18.9k | Main monorepo — TypeScript v2 (`develop` branch, `2.0.4`). ~40 packages under `packages/` (core SDK now at `packages/core/`) plus 130+ first-party plugins under top-level `plugins/`. Python/Rust runtimes removed. MIT licensed. |
 | **docs** | 4 | Official documentation source (MDX/Mintlify). Hosted at docs.elizaos.ai |
 | **roadmap** | 15 | Project roadmap and planning |
 
