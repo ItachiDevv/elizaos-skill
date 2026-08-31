@@ -1,14 +1,14 @@
 # ElizaOS v2 Architecture Reference
 
 Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Root version: **`2.0.4`** in `develop/package.json`; latest published tag **`v2.0.3-beta.7`** (2026-06-28).
+Verified against the live repo: 2026-08-31. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
 The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
 
-### Monorepo Packages (`packages/` — 21 entries on `develop`)
+### Monorepo Packages (`packages/` — ~30 entries on `develop`)
 
 | Package dir | Purpose |
 |---------|---------|
@@ -34,7 +34,7 @@ The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugi
 | `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
 | `ui/` | React web dashboard |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+### Top-level `plugins/` directory (111 entries on `develop`)
 
 First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
 
@@ -416,5 +416,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (111 plugins on `develop`) |
 | Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |
