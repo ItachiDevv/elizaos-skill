@@ -13,7 +13,7 @@ description: >
   latest tag `v2.0.0-alpha.442` as of 2026-04-27) with TypeScript / Python / Rust runtimes, protobuf
   schemas, cross-language interop, capability tiers (Basic/Extended/Autonomy), ServiceBuilder API,
   x402 payments, and Dexter SDK integration. Legacy v1 (1.4.4) lives on the `main` branch.
-  Last verified against the live repo: 2026-04-28.
+  Last verified against the live repo: 2026-09-07.
 ---
 
 # ElizaOS Expert Skill
@@ -51,7 +51,7 @@ Message In → Store in Memory → Compose State (all Providers) → shouldRespo
 
 Two processing modes: **Single-Shot** (one LLM call) and **Multi-Step** (iterative with accumulated context).
 
-### Branches & Versions (verified 2026-04-28)
+### Branches & Versions (verified 2026-09-07)
 
 | Branch | package.json | Status | Notes |
 |--------|---------|--------|---------|

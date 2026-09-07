@@ -2,7 +2,7 @@
 
 Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
 Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Verified against the live repo: 2026-09-07. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
