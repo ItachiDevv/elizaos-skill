@@ -1,40 +1,35 @@
 # ElizaOS v2 Architecture Reference
 
-Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Branch: **`develop`** (default branch — v2 lives here, NOT `v2-develop` which is stale v1).
+Root version: **`2.0.4`** in `develop/package.json`; no standard semver release tags found as of 2026-10-05 (latest internal tag: `pr-evidence-14`, 2026-09-26).
+Verified against the live repo: 2026-10-05. Node 23+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
-The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
+The monorepo has first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete. **Note:** The `packages/python/` and `packages/rust/` SDK directories are no longer present on `develop` as of 2026-10-05 — the polyglot architecture documented in earlier versions has changed.
 
-### Monorepo Packages (`packages/` — 21 entries on `develop`)
+### Monorepo Packages (`packages/` — 14 entries on `develop`, verified 2026-10-05)
+
+> **Structure changed significantly since Apr 2026.** The old 21-package layout is obsolete.
 
 | Package dir | Purpose |
 |---------|---------|
 | `agent/` | Agent runtime composition layer (wires runtime + plugins) |
-| `app/` | Tauri desktop wrapper |
-| `app-core/` | Shared application logic |
+| `app/` | Desktop application wrapper |
+| `auth/` | Authentication package |
 | `benchmarks/` | Performance benchmarks |
-| `docs/` | Mintlify docs source (docs.elizaos.ai) |
-| `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
-| `examples/` | Example agent projects |
-| `homepage/` | elizaos.ai marketing site |
-| `interop/` | Cross-language plugin interoperability |
-| `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
-| `prompts/` | Standalone prompt templates |
-| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
-| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
-| `scenario-runner/` | Scenario testing harness |
-| `scenario-schema/` | Scenario format schema |
-| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
-| `shared/` | Cross-package utilities |
-| `skills/` | Reusable agent skill library |
-| `templates/` | Project templates for `elizaos create` |
-| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `cloud/` | Eliza Cloud integration |
+| `contracts/` | Smart contracts |
+| `core/` | Core TypeScript SDK (publishes as `@elizaos/core`; was `typescript/`) |
+| `host/` | Host service package |
+| `os/` | OS-level integration package |
+| `scripts/` | Build and tooling scripts |
+| `testing/` | Testing harness (consolidates prior scenario-runner/schema) |
+| `training/` | Agent training package |
 | `ui/` | React web dashboard |
+| `voice/` | Voice capabilities package |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+### Top-level `plugins/` directory (72 entries on `develop`, verified 2026-10-05)
 
 First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
 
@@ -416,5 +411,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
-| Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (72 plugins on `develop`, verified 2026-10-05) |
+| Runtime languages | TypeScript only | TypeScript (Python and Rust SDKs no longer in monorepo as of 2026-10-05) |
