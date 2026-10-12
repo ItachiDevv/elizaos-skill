@@ -9,11 +9,11 @@ description: >
   background tasks, event systems, model providers (OpenAI, Anthropic, Ollama, OpenRouter), or
   any code using @elizaos/core, @elizaos/cli, @elizaos/plugin-*, or the elizaos GitHub repos.
   Also use when discussing AI agent architecture, multi-agent orchestration, or the elizaos ecosystem.
-  Covers the v2 alpha (default `develop` branch — currently `2.0.0-alpha.176` in package.json,
-  latest tag `v2.0.0-alpha.442` as of 2026-04-27) with TypeScript / Python / Rust runtimes, protobuf
-  schemas, cross-language interop, capability tiers (Basic/Extended/Autonomy), ServiceBuilder API,
-  x402 payments, and Dexter SDK integration. Legacy v1 (1.4.4) lives on the `main` branch.
-  Last verified against the live repo: 2026-04-28.
+  Covers the v2 release line (default `develop` branch — currently `2.0.4` in package.json;
+  no formal versioned tag found as of 2026-10-12 — the repo now uses `archive/closed-pr-*` tags
+  rather than versioned alpha tags) with capability tiers (Basic/Extended/Autonomy), ServiceBuilder
+  API, x402 payments, and Dexter SDK integration. Legacy v1 (1.4.4) lives on the `main` branch.
+  Last verified against the live repo: 2026-10-12.
 ---
 
 # ElizaOS Expert Skill
@@ -51,54 +51,47 @@ Message In → Store in Memory → Compose State (all Providers) → shouldRespo
 
 Two processing modes: **Single-Shot** (one LLM call) and **Multi-Step** (iterative with accumulated context).
 
-### Branches & Versions (verified 2026-04-28)
+### Branches & Versions (verified 2026-10-12)
 
 | Branch | package.json | Status | Notes |
 |--------|---------|--------|---------|
-| `develop` (default) | `2.0.0-alpha.176` | Active alpha — this is the v2 line | 21 packages, 39 plugins, polyglot (TS+Python+Rust) |
+| `develop` (default) | `2.0.4` | Active v2 release line | 14 packages, 77 plugins |
 | `main` | `1.4.4` | Legacy v1, frozen | TypeScript-only, 17 packages |
 | `v2-develop` | `1.4.4` | **Stale** — identical to `main`, 3956 commits behind develop | Don't use; migrated into `develop` |
 | `v2.0.0` | `2.0.0-alpha` | Separate experimental branch | Different package set incl. `computeruse/`, `sweagent/`, daemon-style packages |
 
-**Latest published tag:** `v2.0.0-alpha.442` (2026-04-27). New alpha tags ship from `develop` continuously — install via `bun i -g @elizaos/cli@alpha`. There is **no stable v2 release** yet — all v2 work has been alpha for 13+ months.
+**Latest published tag:** No formal versioned tag found as of 2026-10-12. The documented alpha tag `v2.0.0-alpha.442` no longer exists. The develop branch `package.json` now reads `2.0.4`. GitHub's "Latest" release is an internal archive marker (`pr-evidence-11`, 2026-08-23). Install CLI via `bun i -g @elizaos/cli@latest`.
 
 **Recommendation:** For new work target the **`develop` branch (v2 alpha)** — it's where all development happens. Only fall back to `main` (1.4.4) if you need a frozen TypeScript-only baseline; upstream development of v1 has stopped.
 
-### Monorepo Layout — `develop` branch (verified)
+### Monorepo Layout — `develop` branch (verified 2026-10-12)
 
 ```
-packages/
+packages/             → 14 directories on develop
   agent/              → Agent runtime composition layer
-  app/                → Tauri desktop wrapper
-  app-core/           → Shared app logic
+  app/                → Desktop app wrapper
+  auth/               → Authentication and identity
   benchmarks/         → Perf benchmarks
-  docs/               → Mintlify docs source (docs.elizaos.ai)
-  elizaos/            → CLI (npm: @elizaos/cli)
-  examples/           → Example agents
-  homepage/           → elizaos.ai marketing site
-  interop/            → Cross-language plugin interop layer
-  native-plugins/     → Built-in plugins (sql, bootstrap, etc.)
-  prompts/            → Standalone prompt templates
-  python/             → Python runtime + SDK (pyproject.toml, uv-managed)
-  rust/               → Rust runtime + SDK (Cargo.toml, builds to native + WASM)
-  scenario-runner/    → Scenario testing harness
-  scenario-schema/    → Scenario format schema
-  schemas/            → Protobuf schemas (buf.yaml; eliza/v1/*.proto)
-  shared/             → Cross-package shared utilities
-  skills/             → Reusable agent skill library
-  templates/          → Project templates for `elizaos create`
-  typescript/         → Core TypeScript SDK (npm: @elizaos/core)
+  cloud/              → Eliza Cloud integration
+  contracts/          → Smart contract integrations
+  core/               → Core TypeScript SDK (npm: @elizaos/core)
+  host/               → Host runtime layer
+  os/                 → ElizaOS operating system layer
+  scripts/            → Build and maintenance scripts
+  testing/            → Test utilities and harness
+  training/           → Model training utilities
   ui/                 → React web dashboard
+  voice/              → Voice/audio capabilities
 
-plugins/              → 39 first-party plugins at top level (Discord,
-                        Telegram, Twitter, Solana, EVM, OpenAI, Anthropic,
-                        Ollama, OpenRouter, Google, knowledge, MCP, etc.)
+plugins/              → 77 first-party plugins at top level (Discord,
+                        Telegram, X, Slack, OpenAI, Anthropic, knowledge,
+                        MCP, browser, calendar, computeruse, SQL, etc.)
 ```
 
 **Key facts to internalize:**
-- **Python and Rust SDKs are real and shipping** on `develop` — `packages/python/elizaos/` (pyproject + uv lock) and `packages/rust/src/` (Cargo + WASM build via `build-wasm.sh`).
+- **`packages/python/` and `packages/rust/`** are no longer present in `develop` as of 2026-10-12 — the polyglot layout has been consolidated. Verify current SDK availability before assuming cross-language support.
 - Plugins are **inside** the monorepo at top-level `plugins/`, not in a separate `elizaos-plugins` org. The old separate-org claim is obsolete.
-- Capability tiers (Basic/Extended/Autonomy) are mirrored across all 3 SDKs — `AutonomyService` exists in TS, Python, and Rust (verified via `ENABLE_AUTONOMY` symbol search).
+- The plugin count has grown substantially: 39 → 77 plugins as of 2026-10-12.
 
 ### `v2.0.0` Branch (Separate Experimental)
 
