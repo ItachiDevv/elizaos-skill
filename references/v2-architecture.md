@@ -1,42 +1,37 @@
 # ElizaOS v2 Architecture Reference
 
-Branch: **`develop`** (default branch — v2 alpha lives here, NOT `v2-develop` which is stale v1).
-Root version: **`2.0.0-alpha.176`** in `develop/package.json`; latest published tag **`v2.0.0-alpha.442`** (2026-04-27).
-Verified against the live repo: 2026-04-28. Node 23+, Bun 1.3.4+.
+Branch: **`develop`** (default branch — v2 release line, NOT `v2-develop` which is stale v1).
+Root version: **`2.0.4`** in `develop/package.json`; no formal versioned tag as of 2026-10-12 (alpha tag series removed; latest GitHub release is internal `pr-evidence-11`, 2026-08-23).
+Verified against the live repo: 2026-10-12. Node 24+, Bun 1.3.4+.
 
 ## Package Layout (verified)
 
 The monorepo is **polyglot** (TypeScript + Python + Rust) with first-party plugins inside the repo at top-level `plugins/`. Plugins are no longer in a separate org — the old `elizaos-plugins/` organization claim is obsolete.
 
-### Monorepo Packages (`packages/` — 21 entries on `develop`)
+### Monorepo Packages (`packages/` — 14 entries on `develop`, verified 2026-10-12)
 
 | Package dir | Purpose |
 |---------|---------|
-| `agent/` | Agent runtime composition layer (wires runtime + plugins) |
-| `app/` | Tauri desktop wrapper |
-| `app-core/` | Shared application logic |
+| `agent/` | Agent runtime composition layer |
+| `app/` | Desktop app wrapper |
+| `auth/` | Authentication and identity |
 | `benchmarks/` | Performance benchmarks |
-| `docs/` | Mintlify docs source (docs.elizaos.ai) |
-| `elizaos/` | CLI (publishes to npm as `@elizaos/cli`) |
-| `examples/` | Example agent projects |
-| `homepage/` | elizaos.ai marketing site |
-| `interop/` | Cross-language plugin interoperability |
-| `native-plugins/` | Built-in core plugins (sql, bootstrap, etc.) |
-| `prompts/` | Standalone prompt templates |
-| `python/` | **Python runtime + SDK** — `pyproject.toml`, uv-managed, full `elizaos` package |
-| `rust/` | **Rust runtime + SDK** — `Cargo.toml`, builds native + WASM (`build-wasm.sh`, `pkg-node/`) |
-| `scenario-runner/` | Scenario testing harness |
-| `scenario-schema/` | Scenario format schema |
-| `schemas/` | **Protobuf schemas** — `buf.yaml` + `eliza/v1/*.proto` (cross-language wire format) |
-| `shared/` | Cross-package utilities |
-| `skills/` | Reusable agent skill library |
-| `templates/` | Project templates for `elizaos create` |
-| `typescript/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `cloud/` | Eliza Cloud integration |
+| `contracts/` | Smart contract integrations |
+| `core/` | Core TypeScript SDK (publishes as `@elizaos/core`) |
+| `host/` | Host runtime layer |
+| `os/` | ElizaOS operating system layer |
+| `scripts/` | Build and maintenance scripts |
+| `testing/` | Test utilities and harness |
+| `training/` | Model training utilities |
 | `ui/` | React web dashboard |
+| `voice/` | Voice/audio capabilities |
 
-### Top-level `plugins/` directory (39 entries on `develop`)
+**Note:** `packages/python/`, `packages/rust/`, `packages/schemas/`, `packages/interop/`, `packages/elizaos/` (CLI), `packages/native-plugins/`, and several other directories from the earlier alpha structure are no longer present in `develop`. The Python and Rust SDK packaging has been consolidated; verify current cross-language support before relying on it.
 
-First-party plugins live inside the monorepo, not a separate org. Includes platform integrations (Discord, Telegram, Twitter, Farcaster), LLM providers (OpenAI, Anthropic, Ollama, OpenRouter, Google), chains (Solana, EVM), knowledge/RAG, MCP, and more.
+### Top-level `plugins/` directory (77 entries on `develop`, verified 2026-10-12)
+
+First-party plugins live inside the monorepo, not a separate org. The count has grown to 77 (up from 39 earlier). Includes platform integrations (Discord, Telegram, X, Slack, iMessage), LLM providers (OpenAI, Anthropic, local inference), knowledge/RAG, MCP, browser automation, calendar, computeruse, SQL, wallet, and many native device plugins.
 
 ### `v2.0.0` Branch (separate experimental — different layout)
 
@@ -416,5 +411,5 @@ Drizzle ORM with PGLite (default), PostgreSQL, or Neon adapters.
 | Task system | Not present | `TaskWorker` + persistent task queue |
 | Run tracking | Not present | `createRunId()` / `startRun()` / `endRun()` |
 | Settings encryption | Not present | AES-256-CBC for secrets |
-| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (39 plugins on `develop`) |
-| Runtime languages | TypeScript only | TypeScript + Python + Rust (shared protobuf wire format) |
+| First-party plugins | In `packages/plugin-*` | Top-level `plugins/` directory (77 plugins on `develop` as of 2026-10-12) |
+| Runtime languages | TypeScript only | TypeScript (Python/Rust SDKs not confirmed in current `develop` layout) |
